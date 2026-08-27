@@ -1,0 +1,32 @@
+[project]
+name = "cryptolens"
+version = "0.1.0"
+description = "Cryptographic inventory and CBOM/PQC migration scanner"
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography>=42.0",
+    "asn1crypto>=1.5",
+    "cyclonedx-python-lib>=7.0",
+    "liboqs-python",
+    "typer>=0.27.1",
+]
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "ruff"]
+
+[project.scripts]
+cryptolens = "cryptolens.cli:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
