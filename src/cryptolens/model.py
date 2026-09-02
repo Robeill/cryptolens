@@ -2,11 +2,18 @@ from dataclasses import dataclass
 
 @dataclass
 class CryptoPurpose:
-    pass
+    ENCRYPTION = "Encryption"
+    KEY_ESTABLISHMENT = "key_establishment"
+    DIGITAL_SIGNATURE = 'digital_signature'
+    HASHING = 'hashing'
+
 
 @dataclass
 class CryptoStatus:
-    pass
+    CLASSICAL = "classical"
+    PQC = "pqc"
+    HYBRID = "hybrid"
+    UNKNOWN = "unknown"
 
 @dataclass
 class RiskLevel:
@@ -14,7 +21,10 @@ class RiskLevel:
 
 @dataclass
 class SourceLocation:
-    pass
+    file: str
+    line: str
+    
+    
 
 @dataclass
 class CryptoFinding:
