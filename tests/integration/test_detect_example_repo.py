@@ -119,3 +119,21 @@ def test_secure_random_is_recorded_but_distinguishable_from_hashing(findings_by_
     csprng = [f for f in findings_by_module["hash_sha256.py"] if f.algorithm == "CSPRNG"]
     assert [f.purpose for f in csprng] == [CryptoPurpose.RANDOM]
     assert csprng[0].crypto_functions == [CryptoFunction.GENERATE]
+
+
+def test_jwt_algorithms_are_resolved_from_their_jwa_names(findings_by_module):
+    found = algorithms(findings_by_module["jwt_tokens.py"])
+    assert {"HMAC-SHA-256", "RSA", "ECDSA", "Ed25519", "none"} <= found
+
+
+def test_jwt_hmac_is_a_mac_and_rsa_is_a_signature(findings_by_module):
+    rows = findings_by_module["jwt_tokens.py"]
+    assert {f.purpose for f in rows if f.algorithm == "HMAC-SHA-256"} == {CryptoPurpose.MAC}
+    assert {f.purpose for f in rows if f.algorithm == "RSA"} == {CryptoPurpose.DIGITAL_SIGNATURE}
+
+
+def test_jwt_verification_disabled_is_detected_in_both_spellings(findings_by_module):
+    disabled = [
+        f for f in findings_by_module["jwt_tokens.py"] if f.detector == "jwt.verification_disabled"
+    ]
+    assert {f.location.line for f in disabled} == {45, 49}

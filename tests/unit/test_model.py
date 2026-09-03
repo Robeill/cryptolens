@@ -95,8 +95,9 @@ def test_identical_findings_get_identical_ids():
         {"location": SourceLocation("pkg/other.py", 12)},
         {"algorithm": "SHA-1"},
         {"purpose": CryptoPurpose.MAC},
+        {"detector": "other.rule"},
     ],
-    ids=["line", "file", "algorithm", "purpose"],
+    ids=["line", "file", "algorithm", "purpose", "detector"],
 )
 def test_id_changes_when_any_identifying_field_changes(overrides):
     assert make_finding(**overrides).finding_id != make_finding().finding_id

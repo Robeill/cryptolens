@@ -52,9 +52,11 @@ def test_matching_is_exact_on_the_qualified_name():
     assert detect([usage(None)]) == []
 
 
-def test_rule_table_has_no_duplicate_match_keys():
-    matches = [rule.match for rule in RULES]
-    assert len(matches) == len(set(matches))
+def test_several_rules_may_share_a_match_key_but_not_a_detector():
+    """jwt.decode carries three rules: algorithms, verify=False, options={...}."""
+    keys = [(rule.match, rule.detector, rule.value_kwarg) for rule in RULES]
+    assert len(keys) == len(set(keys))
+    assert sum(1 for rule in RULES if rule.match == "jwt.decode") == 3
 
 
 def test_finding_records_which_rule_produced_it():
@@ -216,3 +218,92 @@ def test_the_lower_of_usage_and_rule_confidence_wins():
 def test_a_custom_rule_table_replaces_the_default():
     engine = DetectorEngine(rules=[])
     assert engine.detect([usage("hashlib.sha256")]) == []
+
+
+# ------------------------------------------------------------------------------- JWT
+
+
+@pytest.mark.parametrize(
+    ("jwa", "algorithm", "purpose", "primitive"),
+    [
+        ("HS256", "HMAC-SHA-256", CryptoPurpose.MAC, CryptoPrimitive.MAC),
+        ("HS512", "HMAC-SHA-512", CryptoPurpose.MAC, CryptoPrimitive.MAC),
+        ("RS256", "RSA", CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+        ("PS384", "RSA", CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+        ("ES256", "ECDSA", CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+        ("EdDSA", "Ed25519", CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+        ("none", "none", CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.OTHER),
+    ],
+)
+def test_jwa_names_map_to_real_algorithms(jwa, algorithm, purpose, primitive):
+    """HS256 is a MAC, not a signature -- the distinction matters for PQC urgency."""
+    finding = detect([usage("jwt.encode", kwargs={"algorithm": literal_arg(jwa)})])[0]
+    assert (finding.algorithm, finding.purpose, finding.primitive) == (algorithm, purpose, primitive)
+
+
+def test_ec_jwt_algorithms_carry_their_implied_curve():
+    finding = detect([usage("jwt.encode", kwargs={"algorithm": literal_arg("ES512")})])[0]
+    assert finding.parameter_set == "SECP521R1"
+    assert finding.classical_security_level == 256
+
+
+def test_alg_none_is_recorded_with_zero_security():
+    finding = detect([usage("jwt.encode", kwargs={"algorithm": literal_arg("none")})])[0]
+    assert finding.classical_security_level == 0
+
+
+def test_a_list_of_accepted_algorithms_yields_one_finding_each():
+    findings = detect(
+        [usage("jwt.decode", kwargs={"algorithms": literal_arg(["HS256", "none"])})]
+    )
+    assert sorted(f.algorithm for f in findings) == ["HMAC-SHA-256", "none"]
+
+
+def test_an_undetermined_jwt_algorithm_still_produces_a_finding():
+    """algorithm=chosen -- a variable. Recall matters more than precision here."""
+    findings = detect([usage("jwt.encode", kwargs={"algorithm": name_arg("chosen")})])
+    assert [f.algorithm for f in findings] == ["JWT"]
+
+
+def test_unknown_jwa_names_fall_back_rather_than_being_invented():
+    findings = detect([usage("jwt.encode", kwargs={"algorithm": literal_arg("XX999")})])
+    assert [f.algorithm for f in findings] == ["JWT"]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"verify": literal_arg(False)},
+        {"options": literal_arg({"verify_signature": False})},
+    ],
+    ids=["legacy-verify-flag", "options-dict"],
+)
+def test_disabled_signature_verification_is_detected(kwargs):
+    detectors = {f.detector for f in detect([usage("jwt.decode", kwargs=kwargs)])}
+    assert "jwt.verification_disabled" in detectors
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"verify": literal_arg(True)},
+        {"options": literal_arg({"verify_signature": True})},
+        {"options": literal_arg({"verify_exp": False})},
+    ],
+    ids=["verify-true", "signature-verified", "unrelated-option"],
+)
+def test_verification_left_on_is_not_reported(kwargs):
+    detectors = {f.detector for f in detect([usage("jwt.decode", kwargs=kwargs)])}
+    assert "jwt.verification_disabled" not in detectors
+
+
+def test_two_rules_firing_at_one_call_site_produce_distinct_findings():
+    """Both are true at once, so both are reported -- and their ids must differ."""
+    findings = detect([usage("jwt.decode", kwargs={"verify": literal_arg(False)})])
+    assert len(findings) == 2
+    assert len({f.finding_id for f in findings}) == 2
+
+
+def test_jose_is_recognised_as_well_as_pyjwt():
+    finding = detect([usage("jose.jwt.encode", kwargs={"algorithm": literal_arg("HS256")})])[0]
+    assert finding.algorithm == "HMAC-SHA-256"

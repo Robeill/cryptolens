@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,6 +19,19 @@ UNSET = object()
 PYCA = "cryptography.hazmat.primitives"
 PYCA_ASYM = f"{PYCA}.asymmetric"
 PYCA_CIPHERS = f"{PYCA}.ciphers"
+
+
+@dataclass(frozen=True)
+class AlgorithmSpec:
+    algorithm: str
+    primitive: CryptoPrimitive
+    purpose: CryptoPurpose
+    functions: tuple[CryptoFunction, ...] = ()
+    padding: CryptoPadding = CryptoPadding.UNKNOWN
+    parameter_set: str | None = None
+    curve: str | None = None
+    classical_security_level: int | None = None
+    status: CryptoStatus = CryptoStatus.CLASSICAL
 
 
 @dataclass(frozen=True)
@@ -42,12 +56,92 @@ class Rule:
     digest_arg: int | None = None
     digest_kwarg: str | None = None
     name_arg: int | None = None
+    name_kwarg: str | None = None
+    spec_table: Mapping[str, AlgorithmSpec] | None = None
+    value_kwarg: str | None = None
+    value_key: str | None = None
     value_name: str | None = None
     value_equals: Any = UNSET
     consumes_args: bool = False
     emits: bool = True
     confidence: float | None = None
     detector: str = ""
+
+
+
+_HMAC_JWT = {
+    "HS256": ("HMAC-SHA-256", 128),
+    "HS384": ("HMAC-SHA-384", 192),
+    "HS512": ("HMAC-SHA-512", 256),
+}
+
+_RSA_JWT = {
+    "RS256": CryptoPadding.PKCS1V15,
+    "RS384": CryptoPadding.PKCS1V15,
+    "RS512": CryptoPadding.PKCS1V15,
+    "PS256": CryptoPadding.OTHER,
+    "PS384": CryptoPadding.OTHER,
+    "PS512": CryptoPadding.OTHER,
+}
+
+_EC_JWT = {
+    "ES256": ("SECP256R1", 128),
+    "ES256K": ("SECP256K1", 128),
+    "ES384": ("SECP384R1", 192),
+    "ES512": ("SECP521R1", 256),
+}
+
+JWT_ALGORITHMS: dict[str, AlgorithmSpec] = {
+    **{
+        name: AlgorithmSpec(
+            algorithm=algorithm,
+            primitive=CryptoPrimitive.MAC,
+            purpose=CryptoPurpose.MAC,
+            functions=(CryptoFunction.TAG,),
+            classical_security_level=strength,
+        )
+        for name, (algorithm, strength) in _HMAC_JWT.items()
+    },
+    **{
+        name: AlgorithmSpec(
+            algorithm="RSA",
+            primitive=CryptoPrimitive.SIGNATURE,
+            purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+            functions=(CryptoFunction.SIGN,),
+            padding=padding,
+        )
+        for name, padding in _RSA_JWT.items()
+    },
+    **{
+        name: AlgorithmSpec(
+            algorithm="ECDSA",
+            primitive=CryptoPrimitive.SIGNATURE,
+            purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+            functions=(CryptoFunction.SIGN,),
+            parameter_set=curve,
+            curve=curve,
+            classical_security_level=strength,
+        )
+        for name, (curve, strength) in _EC_JWT.items()
+    },
+    "EdDSA": AlgorithmSpec(
+        algorithm="Ed25519",
+        primitive=CryptoPrimitive.SIGNATURE,
+        purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+        functions=(CryptoFunction.SIGN,),
+        parameter_set="Ed25519",
+        curve="Ed25519",
+        classical_security_level=128,
+    ),
+    "none": AlgorithmSpec(
+        algorithm="none",
+        primitive=CryptoPrimitive.OTHER,
+        purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+        classical_security_level=0,
+    ),
+}
+
+JWT_ENTRY_POINTS = ("jwt", "jose.jwt")
 
 
 CIPHER_ALGORITHMS: dict[str, tuple[str, CryptoPrimitive, int | None]] = {
@@ -158,6 +252,58 @@ def _hash_rules() -> list[Rule]:
     return rules
 
 
+def _jwt_rules() -> list[Rule]:
+    rules: list[Rule] = []
+    for module in JWT_ENTRY_POINTS:
+        rules += [
+            Rule(
+                match=f"{module}.encode",
+                algorithm="JWT",
+                primitive=CryptoPrimitive.SIGNATURE,
+                purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+                functions=(CryptoFunction.SIGN,),
+                name_kwarg="algorithm",
+                name_arg=3,
+                spec_table=JWT_ALGORITHMS,
+                consumes_args=True,
+                detector="jwt.encode",
+            ),
+            Rule(
+                match=f"{module}.decode",
+                algorithm="JWT",
+                primitive=CryptoPrimitive.SIGNATURE,
+                purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+                functions=(CryptoFunction.VERIFY,),
+                name_kwarg="algorithms",
+                spec_table=JWT_ALGORITHMS,
+                consumes_args=True,
+                detector="jwt.decode",
+            ),
+            Rule(
+                match=f"{module}.decode",
+                algorithm="JWT",
+                primitive=CryptoPrimitive.SIGNATURE,
+                purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+                functions=(CryptoFunction.VERIFY,),
+                value_kwarg="verify",
+                value_equals=False,
+                detector="jwt.verification_disabled",
+            ),
+            Rule(
+                match=f"{module}.decode",
+                algorithm="JWT",
+                primitive=CryptoPrimitive.SIGNATURE,
+                purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+                functions=(CryptoFunction.VERIFY,),
+                value_kwarg="options",
+                value_key="verify_signature",
+                value_equals=False,
+                detector="jwt.verification_disabled",
+            ),
+        ]
+    return rules
+
+
 def _cipher_rules() -> list[Rule]:
     rules = [
         Rule(
@@ -190,6 +336,7 @@ def _cipher_rules() -> list[Rule]:
 RULES: tuple[Rule, ...] = tuple(
     _hash_rules()
     + _cipher_rules()
+    + _jwt_rules()
     + [
         Rule(
             match="hashlib.new",

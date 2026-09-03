@@ -21,6 +21,7 @@ EXPECTED_MODULES = {
     "dynamic_case.py",
     "ecdsa_sign.py",
     "hash_sha256.py",
+    "jwt_tokens.py",
     "rsa_signing.py",
     "tls_config.py",
     "variable_algorithm.py",

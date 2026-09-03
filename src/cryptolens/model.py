@@ -162,7 +162,10 @@ class CryptoFinding:
             self.finding_id = self._compute_id()
 
     def _compute_id(self) -> str:
-        seed = f"{self.location.file}:{self.location.line}:{self.algorithm}:{self.purpose.value}"
+        seed = (
+            f"{self.location.file}:{self.location.line}:"
+            f"{self.algorithm}:{self.purpose.value}:{self.detector or ''}"
+        )
         return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:12]
 
     def to_dict(self) -> dict[str, Any]:

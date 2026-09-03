@@ -10,6 +10,7 @@ from cryptolens.detectors.rules import (
     CURVES,
     RULES,
     UNSET,
+    AlgorithmSpec,
     Rule,
 )
 from cryptolens.model import CryptoFinding, CryptoMode
@@ -19,40 +20,76 @@ RSA_STRENGTH = {1024: 80, 2048: 112, 3072: 128, 4096: 152, 7680: 192, 15360: 256
 
 class DetectorEngine:
     def __init__(self, rules: Iterable[Rule] = RULES) -> None:
-        self.rules: dict[str, Rule] = {rule.match: rule for rule in rules}
+        self.rules: dict[str, list[Rule]] = {}
+        for rule in rules:
+            self.rules.setdefault(rule.match, []).append(rule)
 
     def detect(self, usages: Iterable[RawSymbolUsage]) -> list[CryptoFinding]:
         findings = []
         for usage in usages:
-            finding = self.detect_one(usage)
-            if finding is not None:
-                findings.append(finding)
+            findings.extend(self.detect_usage(usage))
         return findings
 
-    def detect_one(self, usage: RawSymbolUsage) -> CryptoFinding | None:
+    def detect_usage(self, usage: RawSymbolUsage) -> list[CryptoFinding]:
         if usage.resolved_name is None or self._consumed_by_parent(usage):
-            return None
-        rule = self.rules.get(usage.resolved_name)
-        if rule is None or not rule.emits or not self._value_matches(rule, usage):
-            return None
-        return self._build(rule, usage)
+            return []
+        findings = []
+        for rule in self.rules.get(usage.resolved_name, ()):
+            if not rule.emits or not self._value_matches(rule, usage):
+                continue
+            findings.extend(self._build_all(rule, usage))
+        return findings
 
     def _consumed_by_parent(self, usage: RawSymbolUsage) -> bool:
-        parent = self.rules.get(usage.parent_name or "")
-        return parent is not None and parent.consumes_args
+        parents = self.rules.get(usage.parent_name or "", ())
+        return any(parent.consumes_args for parent in parents)
 
-    @staticmethod
-    def _value_matches(rule: Rule, usage: RawSymbolUsage) -> bool:
+    def _value_matches(self, rule: Rule, usage: RawSymbolUsage) -> bool:
         if rule.value_name is None and rule.value_equals is UNSET:
             return True
-        if not usage.args:
+        if rule.value_kwarg is not None:
+            argument = usage.kwargs.get(rule.value_kwarg)
+        else:
+            argument = usage.args[0] if usage.args else None
+        if argument is None:
             return False
-        value = usage.args[0]
         if rule.value_name is not None:
-            return value.resolved_name == rule.value_name
-        return value.value == rule.value_equals
+            return argument.resolved_name == rule.value_name
+        value = argument.value
+        if rule.value_key is not None:
+            if not isinstance(value, dict):
+                return False
+            value = value.get(rule.value_key, UNSET)
+        if isinstance(rule.value_equals, bool):
+            return value is rule.value_equals
+        return value == rule.value_equals
 
-    def _build(self, rule: Rule, usage: RawSymbolUsage) -> CryptoFinding:
+    def _build_all(self, rule: Rule, usage: RawSymbolUsage) -> list[CryptoFinding]:
+        if rule.spec_table is None:
+            return [self._build(rule, usage)]
+        specs = [rule.spec_table[n] for n in self._named_values(usage, rule) if n in rule.spec_table]
+        if not specs:
+            return [self._build(rule, usage)]
+        return [self._build(rule, usage, spec) for spec in specs]
+
+    def _named_values(self, usage: RawSymbolUsage, rule: Rule) -> list[str]:
+        argument = None
+        if rule.name_kwarg and rule.name_kwarg in usage.kwargs:
+            argument = usage.kwargs[rule.name_kwarg]
+        elif rule.name_arg is not None:
+            argument = self._argument(usage, rule.name_arg)
+        if argument is None or argument.value is None:
+            return []
+        value = argument.value
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, (list, tuple, set)):
+            return [item for item in value if isinstance(item, str)]
+        return []
+
+    def _build(
+        self, rule: Rule, usage: RawSymbolUsage, spec: AlgorithmSpec | None = None
+    ) -> CryptoFinding:
         algorithm = rule.algorithm
         primitive = rule.primitive
         purpose = rule.purpose
@@ -62,9 +99,24 @@ class DetectorEngine:
         curve = None
         key_size = rule.key_size
 
-        named = self._literal(usage, rule.name_arg)
-        if named is not None:
-            algorithm = normalize_algorithm(str(named))
+        functions = list(rule.functions)
+        padding = rule.padding
+        status = rule.status
+
+        if spec is not None:
+            algorithm = spec.algorithm
+            primitive = spec.primitive
+            purpose = spec.purpose
+            padding = spec.padding
+            status = spec.status
+            parameter_set = spec.parameter_set
+            curve = spec.curve
+            strength = spec.classical_security_level
+            functions = list(spec.functions) or functions
+        elif rule.spec_table is None:
+            named = self._literal(usage, rule.name_arg)
+            if named is not None:
+                algorithm = normalize_algorithm(str(named))
 
         if rule.algorithm_arg is not None:
             resolved = self._resolved(usage, rule.algorithm_arg)
@@ -97,12 +149,12 @@ class DetectorEngine:
             asset_type=rule.asset_type,
             primitive=primitive,
             mode=mode,
-            padding=rule.padding,
-            crypto_functions=list(rule.functions),
+            padding=padding,
+            crypto_functions=functions,
             parameter_set=parameter_set,
             curve=curve,
             key_size=key_size,
-            status=rule.status,
+            status=status,
             classical_security_level=strength,
             confidence=min(usage.confidence, rule.confidence or 1.0),
             detector=rule.detector or rule.match,
