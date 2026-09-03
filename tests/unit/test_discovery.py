@@ -1,6 +1,9 @@
 from pathlib import Path
-from cryptolens.discovery.source_files import discover_source_files
+
 from cryptolens.discovery.artifact_files import discover_artifact_files
+from cryptolens.discovery.source_files import discover_source_files
+
+
 def _touch(path: Path, content: bytes = b""):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)

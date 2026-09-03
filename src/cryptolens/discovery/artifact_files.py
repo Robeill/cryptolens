@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 from pathlib import Path
-from cryptolens.discovery.source_files import _is_ignored, DEFAULT_IGNORE_DIRS
+
+from cryptolens.discovery.source_files import DEFAULT_IGNORE_DIRS, _is_ignored
 
 ARTIFACT_EXTENSIONS = {".pem", ".crt", ".cer", ".der", ".key", ".pub", ".p12", ".pfx"}
 SNIFF_BYTES = 4096
