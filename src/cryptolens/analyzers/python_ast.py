@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 CONFIDENCE_DYNAMIC = 0.2
 MAX_RAW_LENGTH = 120
 STARRED_KWARG_KEY = "**"
+ATTRIBUTE_ASSIGNMENT_PREFIX = "<assign>"
+
+ATTRIBUTES_OF_INTEREST = frozenset(
+    {"verify_mode", "check_hostname", "minimum_version", "maximum_version", "protocol"}
+)
 
 BUILTINS_OF_INTEREST = frozenset(
     {"eval", "exec", "compile", "getattr", "setattr", "open", "__import__"}
@@ -88,6 +93,33 @@ class PythonAstAnalyzer(SymbolTableWalker):
         self._parents.append(emitted[0].resolved_name if emitted else None)
         self.generic_visit(node)
         self._parents.pop()
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        super().visit_Assign(node)
+        self._record_attribute_assignment(node, node.targets, node.value)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        super().visit_AnnAssign(node)
+        if node.value is not None:
+            self._record_attribute_assignment(node, [node.target], node.value)
+
+    def _record_attribute_assignment(
+        self, node: ast.AST, targets: list[ast.expr], value: ast.expr
+    ) -> None:
+        argument = self._argument(value)
+        for target in targets:
+            if not isinstance(target, ast.Attribute):
+                continue
+            if argument.resolved_name is None and target.attr not in ATTRIBUTES_OF_INTEREST:
+                continue
+            self.usages.append(
+                RawSymbolUsage(
+                    f"{ATTRIBUTE_ASSIGNMENT_PREFIX}.{target.attr}",
+                    SourceLocation(self.file, target.lineno, target.col_offset),
+                    snippet(node),
+                    args=[argument],
+                )
+            )
 
     def _target_bindings(self, func: ast.AST) -> tuple[list[Binding], bool]:
         parts = dotted_parts(func)
