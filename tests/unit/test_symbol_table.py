@@ -381,3 +381,80 @@ def test_build_symbol_table_returns_a_populated_table():
     table = build_symbol_table(ast.parse("import hashlib as hl\nfrom os import *\n"))
     assert [b.qualified_name for b in table.resolve(["hl", "sha256"])] == ["hashlib.sha256"]
     assert table.wildcard_modules == ["os"]
+
+
+# ------------------------------------------------------- instances of constructed objects
+
+
+def test_assignment_from_a_resolvable_call_binds_the_constructor():
+    """The canonical pyca/cryptography signing idiom: key = generate(); key.sign(...)."""
+    collector = walk(
+        """
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        key = rsa.generate_private_key(key_size=2048)
+        key.sign(data)
+        """
+    )
+    assert names_for(collector, "key.sign") == [
+        "cryptography.hazmat.primitives.asymmetric.rsa.generate_private_key.sign"
+    ]
+
+
+def test_annotated_assignment_binds_the_same_way():
+    collector = walk(
+        """
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        key: object = rsa.generate_private_key(key_size=2048)
+        key.sign(data)
+        """
+    )
+    assert names_for(collector, "key.sign")[0].endswith("generate_private_key.sign")
+
+
+def test_annotation_without_a_value_binds_nothing():
+    collector = walk("import hashlib\nkey: object\nhashlib.sha256(data)\n")
+    assert names_for(collector, "hashlib.sha256") == ["hashlib.sha256"]
+
+
+def test_self_attribute_from_a_constructor_resolves_in_other_methods():
+    collector = walk(
+        """
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        class Signer:
+            def __init__(self):
+                self.key = rsa.generate_private_key(key_size=2048)
+
+            def run(self, data):
+                return self.key.sign(data)
+        """
+    )
+    assert names_for(collector, "self.key.sign")[0].endswith("generate_private_key.sign")
+
+
+def test_assignment_from_an_unresolvable_call_is_still_opaque():
+    """Shadowing must keep working: an unknown callee resolves to nothing, not a guess."""
+    collector = walk(
+        """
+        import hashlib
+
+        def f():
+            hashlib = load_config()
+            hashlib.sha256(a)
+        """
+    )
+    assert names_for(collector, "hashlib.sha256") == []
+
+
+def test_a_resolvable_call_still_shadows_the_name_it_is_assigned_to():
+    collector = walk(
+        """
+        import hashlib
+        import json
+
+        def f():
+            hashlib = json.loads(raw)
+            hashlib.sha256(a)
+        """
+    )
+    assert names_for(collector, "hashlib.sha256") == ["json.loads.sha256"]

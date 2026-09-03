@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from cryptolens.analyzers.symbol_table import (
+    Binding,
+    BindingKind,
     SymbolTable,
     SymbolTableWalker,
     dotted_parts,
@@ -87,8 +89,29 @@ class PythonAstAnalyzer(SymbolTableWalker):
         self.generic_visit(node)
         self._parents.pop()
 
+    def _target_bindings(self, func: ast.AST) -> tuple[list[Binding], bool]:
+        parts = dotted_parts(func)
+        if parts is not None:
+            bindings = self.table.resolve(parts)
+            if bindings:
+                return bindings, False
+            if len(parts) == 1 and parts[0] in BUILTINS_OF_INTEREST:
+                return [Binding(parts[0])], False
+            return [], False
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Call):
+            receiver, _ = self._target_bindings(func.value.func)
+            if receiver:
+                return [
+                    Binding(
+                        f"{b.qualified_name}.{func.attr}",
+                        BindingKind.INSTANCE,
+                        b.confidence,
+                    )
+                    for b in receiver
+                ], False
+        return [], True
+
     def _record(self, node: ast.Call) -> list[RawSymbolUsage]:
-        parts = dotted_parts(node.func)
         common = {
             "location": SourceLocation(self.file, node.lineno, node.col_offset),
             "raw": snippet(node),
@@ -103,19 +126,16 @@ class PythonAstAnalyzer(SymbolTableWalker):
             "node": node,
         }
 
-        if parts is None:
+        bindings, dynamic = self._target_bindings(node.func)
+        if bindings:
+            emitted = [
+                RawSymbolUsage(b.qualified_name, confidence=b.confidence, **common)
+                for b in bindings
+            ]
+        elif dynamic:
             emitted = [RawSymbolUsage(None, confidence=CONFIDENCE_DYNAMIC, **common)]
         else:
-            bindings = self.table.resolve(parts)
-            if bindings:
-                emitted = [
-                    RawSymbolUsage(b.qualified_name, confidence=b.confidence, **common)
-                    for b in bindings
-                ]
-            elif len(parts) == 1 and parts[0] in BUILTINS_OF_INTEREST:
-                emitted = [RawSymbolUsage(parts[0], **common)]
-            else:
-                emitted = []
+            emitted = []
 
         self.usages.extend(emitted)
         return emitted

@@ -33,6 +33,7 @@ class BindingKind(str, Enum):
     IMPORT = "import"
     CONDITIONAL_IMPORT = "conditional_import"
     ASSIGNMENT = "assignment"
+    INSTANCE = "instance"
     CLASS_ATTRIBUTE = "class_attribute"
     WILDCARD = "wildcard"
     OPAQUE = "opaque"
@@ -267,9 +268,27 @@ class SymbolTableWalker(ast.NodeVisitor):
 
     def visit_Assign(self, node: ast.Assign) -> None:
         self.visit(node.value)
-        bindings = self.table.resolve(dotted_parts(node.value))
+        bindings = self._value_bindings(node.value)
         for target in node.targets:
             self._bind_target(target, bindings)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value is None:
+            return
+        self.visit(node.value)
+        self._bind_target(node.target, self._value_bindings(node.value))
+
+    def _value_bindings(self, value: ast.AST) -> list[Binding]:
+        if isinstance(value, ast.Call):
+            return [
+                Binding(b.qualified_name, BindingKind.INSTANCE, b.confidence)
+                for b in self.table.resolve(dotted_parts(value.func))
+            ]
+        return self.table.resolve(dotted_parts(value))
+
+    @staticmethod
+    def _carried_kind(binding: Binding, default: BindingKind) -> BindingKind:
+        return binding.kind if binding.kind is BindingKind.INSTANCE else default
 
     def _bind_target(self, target: ast.AST, bindings: list[Binding]) -> None:
         if isinstance(target, ast.Name):
@@ -279,7 +298,7 @@ class SymbolTableWalker(ast.NodeVisitor):
                         target.id,
                         Binding(
                             binding.qualified_name,
-                            BindingKind.ASSIGNMENT,
+                            self._carried_kind(binding, BindingKind.ASSIGNMENT),
                             binding.confidence,
                         ),
                     )
@@ -297,7 +316,7 @@ class SymbolTableWalker(ast.NodeVisitor):
                         target.attr,
                         Binding(
                             binding.qualified_name,
-                            BindingKind.CLASS_ATTRIBUTE,
+                            self._carried_kind(binding, BindingKind.CLASS_ATTRIBUTE),
                             binding.confidence,
                         ),
                     )

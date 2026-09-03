@@ -299,3 +299,53 @@ def test_deeply_nested_expression_does_not_raise(tmp_path):
     module = tmp_path / "deep.py"
     module.write_text("import hashlib\nhashlib.sha256(" + "(" * 60 + "x" + ")" * 60 + ")\n")
     assert analyze_file(module, tmp_path) is not None
+
+
+# ------------------------------------------------------- methods on constructed objects
+
+
+def test_method_on_a_constructed_object_keeps_its_arguments():
+    """Without this, RSA signing loses its padding and hash entirely."""
+    usage = one(
+        """
+        from cryptography.hazmat.primitives.asymmetric import rsa, padding
+        from cryptography.hazmat.primitives import hashes
+        key = rsa.generate_private_key(key_size=2048)
+        key.sign(data, padding.PSS(salt_length=32), hashes.SHA256())
+        """,
+        "cryptography.hazmat.primitives.asymmetric.rsa.generate_private_key.sign",
+    )
+    assert [a.resolved_name for a in usage.args[1:]] == [
+        "cryptography.hazmat.primitives.asymmetric.padding.PSS",
+        "cryptography.hazmat.primitives.hashes.SHA256",
+    ]
+
+
+def test_chained_call_resolves_through_its_receiver():
+    """hashlib.sha256(x).hexdigest() must behave like the two-statement form."""
+    found = usages("import hashlib\nhashlib.sha256(payload).hexdigest()\n")
+    assert sorted(u.resolved_name for u in found) == [
+        "hashlib.sha256",
+        "hashlib.sha256.hexdigest",
+    ]
+    assert all(not u.is_dynamic for u in found)
+
+
+def test_chains_of_more_than_one_link_resolve():
+    found = usages(
+        """
+        from cryptography.hazmat.primitives.ciphers import Cipher
+        Cipher(alg, mode).encryptor().update(data)
+        """
+    )
+    names = {u.resolved_name for u in found}
+    assert "cryptography.hazmat.primitives.ciphers.Cipher.encryptor.update" in names
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["getattr(mod, chosen)(data)", "funcs[i](data)", "(lambda: f)()(data)"],
+    ids=["getattr", "subscript", "lambda"],
+)
+def test_genuinely_dynamic_dispatch_is_still_reported_as_dynamic(code):
+    assert any(u.is_dynamic for u in usages(code + "\n"))
