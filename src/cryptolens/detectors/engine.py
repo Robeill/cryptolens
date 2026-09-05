@@ -8,13 +8,13 @@ from cryptolens.detectors.rules import (
     CIPHER_ALGORITHMS,
     CIPHER_MODES,
     CURVES,
+    HASH_STRENGTH,
     RULES,
     UNSET,
     AlgorithmSpec,
     Rule,
 )
 from cryptolens.model import CryptoFinding, CryptoMode
-
 RSA_STRENGTH = {1024: 80, 2048: 112, 3072: 128, 4096: 152, 7680: 192, 15360: 256}
 
 
@@ -135,6 +135,8 @@ class DetectorEngine:
         digest = self._digest(usage, rule)
         if digest is not None:
             algorithm = normalize_composite(rule.algorithm, digest)
+            if strength is None:
+                strength = HASH_STRENGTH.get(normalize_algorithm(digest))
 
         if key_size is None:
             key_size = self._key_size(usage, rule)

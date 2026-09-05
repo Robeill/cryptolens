@@ -11,7 +11,13 @@ import pytest
 from cryptolens.analyzers.python_ast import analyze_file
 from cryptolens.detectors.engine import detect
 from cryptolens.discovery.source_files import discover_source_files
-from cryptolens.model import CryptoFunction, CryptoMode, CryptoPrimitive, CryptoPurpose
+from cryptolens.model import (
+    CryptoFunction,
+    CryptoMode,
+    CryptoPrimitive,
+    CryptoPurpose,
+    MigrationStatus,
+)
 
 EXAMPLE_REPO = Path(__file__).resolve().parent.parent / "fixtures" / "example_repo"
 
@@ -137,3 +143,46 @@ def test_jwt_verification_disabled_is_detected_in_both_spellings(findings_by_mod
         f for f in findings_by_module["jwt_tokens.py"] if f.detector == "jwt.verification_disabled"
     ]
     assert {f.location.line for f in disabled} == {45, 49}
+
+
+def test_one_algorithm_never_gets_two_different_migration_statuses(findings_by_module):
+    """`migration_status` is derived, so it cannot disagree with itself across call sites."""
+    by_algorithm: dict[str, set] = {}
+    for rows in findings_by_module.values():
+        for f in rows:
+            by_algorithm.setdefault(f.algorithm, set()).add(f.migration_status)
+    contradictory = {name: s for name, s in by_algorithm.items() if len(s) > 1}
+    assert contradictory == {}
+
+
+def test_migration_status_splits_the_fixture_repo_the_way_the_thesis_argues(findings_by_module):
+    status_of = {}
+    for rows in findings_by_module.values():
+        for f in rows:
+            status_of.setdefault(f.algorithm, f.migration_status)
+
+    assert status_of["RSA"] is MigrationStatus.QUANTUM_VULNERABLE
+    assert status_of["ECDSA"] is MigrationStatus.QUANTUM_VULNERABLE
+    assert status_of["ECDH"] is MigrationStatus.QUANTUM_VULNERABLE
+    assert status_of["Ed25519"] is MigrationStatus.QUANTUM_VULNERABLE
+    assert status_of["EC"] is MigrationStatus.QUANTUM_VULNERABLE
+
+    assert status_of["HMAC-SHA-256"] is MigrationStatus.QUANTUM_SAFE
+    assert status_of["SHA-256"] is MigrationStatus.QUANTUM_SAFE
+    assert status_of["PBKDF2-SHA-256"] is MigrationStatus.QUANTUM_SAFE
+
+    assert status_of["MD5"] is MigrationStatus.NEEDS_REVIEW
+    assert status_of["SHA-1"] is MigrationStatus.NEEDS_REVIEW
+    assert status_of["3DES"] is MigrationStatus.NEEDS_REVIEW
+
+    assert status_of["none"] is MigrationStatus.NOT_APPLICABLE
+
+
+def test_a_bare_ec_keygen_is_vulnerable_even_though_its_purpose_is_undetermined(
+    findings_by_module,
+):
+    """We refuse to guess ECDSA vs ECDH, but the named curve is enough to know Shor breaks it."""
+    ec = [f for f in findings_by_module["ecdsa_sign.py"] if f.algorithm == "EC"]
+    assert ec
+    assert {f.purpose for f in ec} == {CryptoPurpose.UNKNOWN}
+    assert {f.migration_status for f in ec} == {MigrationStatus.QUANTUM_VULNERABLE}

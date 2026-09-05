@@ -23,6 +23,7 @@ class CryptoStatus(str, Enum):
     HYBRID = "hybrid"
     UNKNOWN = "unknown"
 
+
 class MigrationStatus(str, Enum):
     QUANTUM_VULNERABLE = "quantum_vulnerable"
     QUANTUM_SAFE = "quantum_safe"
@@ -132,6 +133,39 @@ class SourceLocation:
         return f"{self.file}:{self.line}"
 
 
+SHOR_BREAKABLE_PRIMITIVES: frozenset[CryptoPrimitive] = frozenset(
+    {
+        CryptoPrimitive.PKE,
+        CryptoPrimitive.KEM,
+        CryptoPrimitive.KEY_AGREE,
+        CryptoPrimitive.SIGNATURE,
+    }
+)
+
+SHOR_BREAKABLE_PURPOSES: frozenset[CryptoPurpose] = frozenset(
+    {
+        CryptoPurpose.KEY_ESTABLISHMENT,
+        CryptoPurpose.DIGITAL_SIGNATURE,
+    }
+)
+
+GROVER_ONLY_PRIMITIVES: frozenset[CryptoPrimitive] = frozenset(
+    {
+        CryptoPrimitive.AE,
+        CryptoPrimitive.BLOCK_CIPHER,
+        CryptoPrimitive.STREAM_CIPHER,
+        CryptoPrimitive.MAC,
+        CryptoPrimitive.KDF,
+        CryptoPrimitive.KEY_WRAP,
+        CryptoPrimitive.HASH,
+        CryptoPrimitive.XOF,
+        CryptoPrimitive.DRBG,
+    }
+)
+
+SYMMETRIC_SECURITY_FLOOR = 128
+
+
 @dataclass
 class CryptoFinding:
     algorithm: str
@@ -149,7 +183,6 @@ class CryptoFinding:
     oid: str | None = None
     status: CryptoStatus = CryptoStatus.UNKNOWN
     risk: RiskLevel = RiskLevel.INFO
-    migration_status: MigrationStatus = MigrationStatus.NEEDS_REVIEW
     classical_security_level: int | None = None
     nist_quantum_security_level: int | None = None
     confidence: float = 1.0
@@ -168,5 +201,27 @@ class CryptoFinding:
         )
         return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:12]
 
+    @property
+    def migration_status(self) -> MigrationStatus:
+        if self.classical_security_level == 0:
+            return MigrationStatus.NOT_APPLICABLE
+        if self.status in (CryptoStatus.PQC, CryptoStatus.HYBRID):
+            return MigrationStatus.QUANTUM_SAFE
+        if self.status is CryptoStatus.UNKNOWN:
+            return MigrationStatus.NEEDS_REVIEW
+        if (
+            self.primitive in SHOR_BREAKABLE_PRIMITIVES
+            or self.purpose in SHOR_BREAKABLE_PURPOSES
+            or self.curve is not None
+        ):
+            return MigrationStatus.QUANTUM_VULNERABLE
+        if self.primitive in GROVER_ONLY_PRIMITIVES:
+            level = self.classical_security_level
+            if level is not None and level >= SYMMETRIC_SECURITY_FLOOR:
+                return MigrationStatus.QUANTUM_SAFE
+        return MigrationStatus.NEEDS_REVIEW
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["migration_status"] = self.migration_status
+        return payload

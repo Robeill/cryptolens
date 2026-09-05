@@ -40,7 +40,6 @@ def test_optional_fields_default_to_enum_members_not_none():
     assert f.padding is CryptoPadding.UNKNOWN
     assert f.status is CryptoStatus.UNKNOWN
     assert f.risk is RiskLevel.INFO
-    assert f.migration_status is MigrationStatus.NEEDS_REVIEW
 
 
 def test_mutable_defaults_are_not_shared_between_findings():
@@ -81,7 +80,119 @@ def test_finding_round_trips_through_json():
     assert payload["risk"] == "high"
     assert payload["crypto_functions"] == ["encrypt", "tag"]
     assert payload["location"] == {"file": "pkg/hashes.py", "line": 12, "column": None}
+    assert payload["migration_status"] == "needs_review"
 
+
+
+# ------------------------------------------------------------------ migration status
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        (
+            {"status": CryptoStatus.CLASSICAL, "primitive": CryptoPrimitive.SIGNATURE},
+            MigrationStatus.QUANTUM_VULNERABLE,
+        ),
+        (
+            {"status": CryptoStatus.CLASSICAL, "primitive": CryptoPrimitive.KEY_AGREE},
+            MigrationStatus.QUANTUM_VULNERABLE,
+        ),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "primitive": CryptoPrimitive.UNKNOWN,
+                "purpose": CryptoPurpose.KEY_ESTABLISHMENT,
+            },
+            MigrationStatus.QUANTUM_VULNERABLE,
+        ),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "primitive": CryptoPrimitive.BLOCK_CIPHER,
+                "classical_security_level": 256,
+            },
+            MigrationStatus.QUANTUM_SAFE,
+        ),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "primitive": CryptoPrimitive.MAC,
+                "purpose": CryptoPurpose.MAC,
+                "classical_security_level": 128,
+            },
+            MigrationStatus.QUANTUM_SAFE,
+        ),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "primitive": CryptoPrimitive.BLOCK_CIPHER,
+                "classical_security_level": 112,
+            },
+            MigrationStatus.NEEDS_REVIEW,
+        ),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "primitive": CryptoPrimitive.HASH,
+                "classical_security_level": None,
+            },
+            MigrationStatus.NEEDS_REVIEW,
+        ),
+        ({"status": CryptoStatus.PQC}, MigrationStatus.QUANTUM_SAFE),
+        ({"status": CryptoStatus.HYBRID}, MigrationStatus.QUANTUM_SAFE),
+        ({"status": CryptoStatus.UNKNOWN}, MigrationStatus.NEEDS_REVIEW),
+        (
+            {
+                "status": CryptoStatus.CLASSICAL,
+                "purpose": CryptoPurpose.DIGITAL_SIGNATURE,
+                "classical_security_level": 0,
+            },
+            MigrationStatus.NOT_APPLICABLE,
+        ),
+    ],
+    ids=[
+        "signature",
+        "key-agree",
+        "key-establishment-without-primitive",
+        "aes-256",
+        "hmac-sha-256",
+        "3des",
+        "broken-hash",
+        "pqc",
+        "hybrid",
+        "unknown",
+        "no-algorithm-at-all",
+    ],
+)
+def test_migration_status_is_derived_from_status_primitive_and_strength(overrides, expected):
+    assert make_finding(**overrides).migration_status is expected
+
+
+def test_migration_status_cannot_be_set_independently_of_status():
+    """It is a property, so no caller can put it out of step with `status`."""
+    with pytest.raises(TypeError):
+        make_finding(migration_status=MigrationStatus.QUANTUM_SAFE)
+
+
+def test_a_mac_is_not_treated_as_a_signature():
+    """HS256 is a MAC: Grover only halves it, so it is not a PQC migration target."""
+    hs256 = make_finding(
+        algorithm="HMAC-SHA-256",
+        purpose=CryptoPurpose.MAC,
+        primitive=CryptoPrimitive.MAC,
+        status=CryptoStatus.CLASSICAL,
+        classical_security_level=128,
+    )
+    rs256 = make_finding(
+        algorithm="RSA",
+        purpose=CryptoPurpose.DIGITAL_SIGNATURE,
+        primitive=CryptoPrimitive.SIGNATURE,
+        status=CryptoStatus.CLASSICAL,
+        classical_security_level=112,
+    )
+    assert hs256.migration_status is MigrationStatus.QUANTUM_SAFE
+    assert rs256.migration_status is MigrationStatus.QUANTUM_VULNERABLE
 
 
 def test_identical_findings_get_identical_ids():
