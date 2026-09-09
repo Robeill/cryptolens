@@ -209,11 +209,7 @@ class CryptoFinding:
             return MigrationStatus.QUANTUM_SAFE
         if self.status is CryptoStatus.UNKNOWN:
             return MigrationStatus.NEEDS_REVIEW
-        if (
-            self.primitive in SHOR_BREAKABLE_PRIMITIVES
-            or self.purpose in SHOR_BREAKABLE_PURPOSES
-            or self.curve is not None
-        ):
+        if (self.primitive in SHOR_BREAKABLE_PRIMITIVES or self.purpose in SHOR_BREAKABLE_PURPOSES or self.curve is not None):
             return MigrationStatus.QUANTUM_VULNERABLE
         if self.primitive in GROVER_ONLY_PRIMITIVES:
             level = self.classical_security_level

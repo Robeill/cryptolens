@@ -83,11 +83,7 @@ def _default_is_crypto_name(name: str) -> bool:
 
 
 class SymbolTable:
-    def __init__(
-        self,
-        package: str | None = None,
-        is_crypto_name: Callable[[str], bool] | None = None,
-    ) -> None:
+    def __init__(self,package: str | None = None,is_crypto_name: Callable[[str], bool] | None = None,) -> None:
         self.package = package
         self.wildcard_modules: list[str] = []
         self._scopes: list[dict[str, list[Binding]]] = [{}]
