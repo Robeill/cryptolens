@@ -182,7 +182,6 @@ class CryptoFinding:
     key_size: int | None = None
     oid: str | None = None
     status: CryptoStatus = CryptoStatus.UNKNOWN
-    risk: RiskLevel = RiskLevel.INFO
     classical_security_level: int | None = None
     nist_quantum_security_level: int | None = None
     confidence: float = 1.0

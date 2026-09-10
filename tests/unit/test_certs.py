@@ -107,7 +107,7 @@ def test_certificate_metadata_is_recorded(artifact_repo):
     assert cert.extra["issuer"] == "CN=rsa.example"
     assert cert.extra["is_ca"] is True
     assert cert.extra["not_before"].startswith("2024-01-01")
-    assert cert.extra["not_after"].startswith("2030-01-01")
+    assert cert.extra["not_after"].startswith("2029-01-01")
     assert cert.extra["serial_number"]
 
 

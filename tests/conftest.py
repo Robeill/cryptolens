@@ -18,7 +18,9 @@ from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, mldsa, m
 from cryptography.x509.oid import NameOID
 
 NOT_BEFORE = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
-NOT_AFTER = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
+NOT_AFTER = datetime.datetime(2029, 1, 1, tzinfo=datetime.UTC)
+EXPIRED_AFTER = datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC)
+LONG_LIVED_AFTER = datetime.datetime(2040, 1, 1, tzinfo=datetime.UTC)
 
 GOST_SIGNATURE_OID = "1.2.643.7.1.1.3.2"
 SLH_DSA_SHA2_128S_OID = "2.16.840.1.101.3.4.3.20"
@@ -49,7 +51,9 @@ def _key_usage(**flags) -> x509.KeyUsage:
     return x509.KeyUsage(**defaults)
 
 
-def _self_signed(key, common_name: str, algorithm, key_usage=None) -> x509.Certificate:
+def _self_signed(
+    key, common_name: str, algorithm, key_usage=None, not_after=NOT_AFTER
+) -> x509.Certificate:
     subject = _name(common_name)
     builder = (
         x509.CertificateBuilder()
@@ -58,7 +62,7 @@ def _self_signed(key, common_name: str, algorithm, key_usage=None) -> x509.Certi
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(NOT_BEFORE)
-        .not_valid_after(NOT_AFTER)
+        .not_valid_after(not_after)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
     )
     if key_usage is not None:
@@ -131,6 +135,21 @@ def artifact_repo(tmp_path_factory) -> Path:
             "tls.example",
             hashes.SHA256(),
             _key_usage(digital_signature=True, key_encipherment=True),
+        ).public_bytes(pem)
+    )
+
+    (root / "expired_cert.pem").write_bytes(
+        _self_signed(
+            rsa_key, "expired.example", hashes.SHA256(), not_after=EXPIRED_AFTER
+        ).public_bytes(pem)
+    )
+    (root / "long_lived_cert.pem").write_bytes(
+        _self_signed(
+            ec_key,
+            "longlived.example",
+            hashes.SHA256(),
+            _key_usage(digital_signature=True),
+            not_after=LONG_LIVED_AFTER,
         ).public_bytes(pem)
     )
 

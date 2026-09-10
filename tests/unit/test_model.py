@@ -39,7 +39,6 @@ def test_optional_fields_default_to_enum_members_not_none():
     assert f.mode is CryptoMode.UNKNOWN
     assert f.padding is CryptoPadding.UNKNOWN
     assert f.status is CryptoStatus.UNKNOWN
-    assert f.risk is RiskLevel.INFO
 
 
 def test_mutable_defaults_are_not_shared_between_findings():
@@ -69,7 +68,6 @@ def test_finding_round_trips_through_json():
         primitive=CryptoPrimitive.BLOCK_CIPHER,
         mode=CryptoMode.GCM,
         crypto_functions=[CryptoFunction.ENCRYPT, CryptoFunction.TAG],
-        risk=RiskLevel.HIGH,
         key_size=256,
     )
     payload = json.loads(json.dumps(f.to_dict()))
@@ -77,7 +75,6 @@ def test_finding_round_trips_through_json():
     # Enum members serialise as their bare string values, not "CryptoMode.GCM".
     assert payload["mode"] == "gcm"
     assert payload["primitive"] == "block-cipher"
-    assert payload["risk"] == "high"
     assert payload["crypto_functions"] == ["encrypt", "tag"]
     assert payload["location"] == {"file": "pkg/hashes.py", "line": 12, "column": None}
     assert payload["migration_status"] == "needs_review"
