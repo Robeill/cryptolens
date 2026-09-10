@@ -30,7 +30,26 @@ def _name(common_name: str) -> x509.Name:
     return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
 
 
-def _self_signed(key, common_name: str, algorithm) -> x509.Certificate:
+def _key_usage(**flags) -> x509.KeyUsage:
+    defaults = dict.fromkeys(
+        (
+            "digital_signature",
+            "content_commitment",
+            "key_encipherment",
+            "data_encipherment",
+            "key_agreement",
+            "key_cert_sign",
+            "crl_sign",
+            "encipher_only",
+            "decipher_only",
+        ),
+        False,
+    )
+    defaults.update(flags)
+    return x509.KeyUsage(**defaults)
+
+
+def _self_signed(key, common_name: str, algorithm, key_usage=None) -> x509.Certificate:
     subject = _name(common_name)
     builder = (
         x509.CertificateBuilder()
@@ -42,6 +61,8 @@ def _self_signed(key, common_name: str, algorithm) -> x509.Certificate:
         .not_valid_after(NOT_AFTER)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
     )
+    if key_usage is not None:
+        builder = builder.add_extension(key_usage, critical=True)
     return builder.sign(key, algorithm)
 
 
@@ -92,6 +113,25 @@ def artifact_repo(tmp_path_factory) -> Path:
     (root / "rsa_cert.der").write_bytes(rsa_cert.public_bytes(der))
     (root / "dsa_cert.pem").write_bytes(
         _self_signed(dsa_key, "dsa.example", hashes.SHA256()).public_bytes(pem)
+    )
+
+    (root / "signing_cert.pem").write_bytes(
+        _self_signed(
+            rsa_key, "signing.example", hashes.SHA256(), _key_usage(digital_signature=True)
+        ).public_bytes(pem)
+    )
+    (root / "agreement_cert.pem").write_bytes(
+        _self_signed(
+            ec_key, "agreement.example", hashes.SHA256(), _key_usage(key_agreement=True)
+        ).public_bytes(pem)
+    )
+    (root / "tls_cert.pem").write_bytes(
+        _self_signed(
+            rsa_key,
+            "tls.example",
+            hashes.SHA256(),
+            _key_usage(digital_signature=True, key_encipherment=True),
+        ).public_bytes(pem)
     )
 
     (root / "chain.pem").write_bytes(rsa_cert.public_bytes(pem) + ec_cert.public_bytes(pem))

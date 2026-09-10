@@ -41,6 +41,25 @@ CONFIDENCE_UNKNOWN_OID = 0.3
 
 RSA_STRENGTH = {1024: 80, 2048: 112, 3072: 128, 4096: 152, 7680: 192, 15360: 256}
 
+SIGNING_KEY_USAGES = frozenset(
+    {"digital_signature", "content_commitment", "key_cert_sign", "crl_sign"}
+)
+ESTABLISHMENT_KEY_USAGES = frozenset(
+    {"key_encipherment", "key_agreement", "encipher_only", "decipher_only"}
+)
+
+KEY_USAGE_FLAGS = (
+    "digital_signature",
+    "content_commitment",
+    "key_encipherment",
+    "data_encipherment",
+    "key_agreement",
+    "key_cert_sign",
+    "crl_sign",
+    "encipher_only",
+    "decipher_only",
+)
+
 CERTIFICATE_LABELS = frozenset({"CERTIFICATE", "X509 CERTIFICATE", "TRUSTED CERTIFICATE"})
 REQUEST_LABELS = frozenset({"CERTIFICATE REQUEST", "NEW CERTIFICATE REQUEST"})
 PUBLIC_KEY_LABELS = frozenset({"PUBLIC KEY", "RSA PUBLIC KEY"})
@@ -212,12 +231,47 @@ def _certificate_via_cryptography(
     except Exception:
         metadata["is_ca"] = False
 
+    usage = _key_usage_via_cryptography(cert)
+    if usage is not None:
+        metadata["key_usage"] = sorted(usage)
+
     try:
         signature_oid = cert.signature_algorithm_oid.dotted_string
     except Exception:
         signature_oid = None
 
     return signature_oid, _key_facts_from_object(_public_key(cert)), metadata
+
+
+def _key_usage_via_cryptography(cert: Any) -> set[str] | None:
+    try:
+        extension = cert.extensions.get_extension_for_class(x509.KeyUsage).value
+    except Exception:
+        logger.debug("certificate has no key usage extension", exc_info=True)
+        return None
+    flags = set()
+    for flag in KEY_USAGE_FLAGS:
+        try:
+            if getattr(extension, flag):
+                flags.add(flag)
+        except ValueError:
+            logger.debug("key usage flag %s is not decodable here", flag, exc_info=True)
+    return flags
+
+
+def _key_usage_via_asn1crypto(cert: Any) -> set[str] | None:
+    try:
+        value = cert.key_usage_value
+    except Exception:
+        logger.debug("unreadable key usage extension", exc_info=True)
+        return None
+    if value is None:
+        return None
+    try:
+        return set(value.native)
+    except Exception:
+        logger.debug("undecodable key usage bits", exc_info=True)
+        return None
 
 
 def _public_key(cert: Any) -> Any | None:
@@ -239,6 +293,9 @@ def _certificate_via_asn1crypto(
         return None
 
     metadata: dict[str, Any] = {"artifact": "x509_certificate", "parser": "asn1crypto"}
+    usage = _key_usage_via_asn1crypto(cert)
+    if usage is not None:
+        metadata["key_usage"] = sorted(usage)
     for name in ("subject", "issuer"):
         try:
             metadata[name] = tbs[name].human_friendly
@@ -489,13 +546,14 @@ def _certificate_finding(
             extra=dict(metadata),
         )
     entry = facts.entry
+    purpose, primitive = _refine_from_key_usage(entry, metadata.get("key_usage"))
     return CryptoFinding(
         algorithm=normalize_algorithm(entry.algorithm),
         location=location,
-        purpose=entry.purpose,
+        purpose=purpose,
         evidence=f"X.509 certificate ({subject}) with a {entry.algorithm} public key",
         asset_type=AssetType.CERTIFICATE,
-        primitive=entry.primitive,
+        primitive=primitive,
         parameter_set=facts.parameter_set,
         curve=facts.curve,
         key_size=facts.key_size,
@@ -507,6 +565,26 @@ def _certificate_finding(
         detector="certs.certificate",
         extra=dict(metadata),
     )
+
+
+def _refine_from_key_usage(
+    entry: OidEntry, key_usage: list[str] | None
+) -> tuple[CryptoPurpose, CryptoPrimitive]:
+    """A certificate states what its key is for. Use it only when it says one thing."""
+    if entry.purpose is not CryptoPurpose.UNKNOWN or not key_usage:
+        return entry.purpose, entry.primitive
+
+    flags = set(key_usage)
+    signs = bool(flags & SIGNING_KEY_USAGES)
+    establishes = bool(flags & ESTABLISHMENT_KEY_USAGES)
+    if signs == establishes:
+        return entry.purpose, entry.primitive
+
+    if signs:
+        return CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE
+    if entry.algorithm == "EC":
+        return CryptoPurpose.KEY_ESTABLISHMENT, CryptoPrimitive.KEY_AGREE
+    return CryptoPurpose.KEY_ESTABLISHMENT, entry.primitive
 
 
 def _signature_finding(

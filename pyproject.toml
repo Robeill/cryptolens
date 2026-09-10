@@ -31,6 +31,7 @@ exclude = ["tests/fixtures"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/cryptolens/certs/parser.py" = ["BLE001"]
+"src/cryptolens/pqc/liboqs_bridge.py" = ["BLE001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

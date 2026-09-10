@@ -156,6 +156,41 @@ def test_a_pem_bundle_yields_every_certificate_in_it(artifact_repo):
     assert len(findings) == 4
 
 
+def test_key_usage_settles_a_certificate_keys_purpose(artifact_repo):
+    """An RSA key is a key until the certificate says what it is for. `digitalSignature`
+    says it signs, and that is the difference between recommending ML-DSA and guessing."""
+    cert = only(parse(artifact_repo, "signing_cert.pem"), AssetType.CERTIFICATE)
+    assert cert.purpose is CryptoPurpose.DIGITAL_SIGNATURE
+    assert cert.primitive is CryptoPrimitive.SIGNATURE
+    assert cert.extra["key_usage"] == ["digital_signature"]
+
+
+def test_key_agreement_usage_marks_an_ec_key_as_key_establishment(artifact_repo):
+    cert = only(parse(artifact_repo, "agreement_cert.pem"), AssetType.CERTIFICATE)
+    assert cert.purpose is CryptoPurpose.KEY_ESTABLISHMENT
+    assert cert.primitive is CryptoPrimitive.KEY_AGREE
+
+
+def test_a_certificate_claiming_both_uses_stays_undetermined(artifact_repo):
+    """A TLS certificate with `digitalSignature` and `keyEncipherment` genuinely does both,
+    so guessing one would be worse than reporting the ambiguity."""
+    cert = only(parse(artifact_repo, "tls_cert.pem"), AssetType.CERTIFICATE)
+    assert cert.purpose is CryptoPurpose.UNKNOWN
+    assert cert.extra["key_usage"] == ["digital_signature", "key_encipherment"]
+
+
+def test_a_certificate_without_a_key_usage_extension_records_none(artifact_repo):
+    cert = only(parse(artifact_repo, "rsa_cert.pem"), AssetType.CERTIFICATE)
+    assert "key_usage" not in cert.extra
+    assert cert.purpose is CryptoPurpose.UNKNOWN
+
+
+def test_the_fallback_reads_key_usage_too(artifact_repo, without_pyca_certificates):
+    cert = only(parse(artifact_repo, "signing_cert.pem"), AssetType.CERTIFICATE)
+    assert cert.extra["parser"] == "asn1crypto"
+    assert cert.purpose is CryptoPurpose.DIGITAL_SIGNATURE
+
+
 # ----------------------------------------------------------------- post-quantum
 
 
