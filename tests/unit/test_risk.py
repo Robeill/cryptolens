@@ -285,6 +285,35 @@ def test_disabled_verification_is_critical_whatever_the_algorithm():
     assert assessment.priority is Priority.IMMEDIATE
 
 
+def test_every_configured_detector_name_actually_exists():
+    """Three of these four names were wrong and silently matched nothing. The rule table is
+    the authority; this test is the cross-check."""
+    from cryptolens.detectors.rules import RULES
+    from cryptolens.risk.rules import DISABLED_VERIFICATION_DETECTORS
+
+    known = {rule.detector or rule.match for rule in RULES}
+    assert DISABLED_VERIFICATION_DETECTORS <= known
+
+
+def test_tls_verification_disabled_is_critical():
+    for detector in ("ssl.verification_disabled", "ssl.hostname_check_disabled",
+                     "ssl.unverified_context"):
+        assessment = assess(
+            finding(
+                algorithm="TLS",
+                asset_type=AssetType.PROTOCOL,
+                purpose=CryptoPurpose.KEY_ESTABLISHMENT,
+                primitive=CryptoPrimitive.OTHER,
+                detector=detector,
+                mode=CryptoMode.UNKNOWN,
+                classical_security_level=None,
+            ),
+            NOW,
+        )
+        assert assessment.classical_risk is RiskLevel.CRITICAL, detector
+        assert assessment.priority is Priority.IMMEDIATE, detector
+
+
 # ------------------------------------------------------------------- certificate dates
 
 

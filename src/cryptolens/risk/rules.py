@@ -114,9 +114,9 @@ VULNERABLE_PADDINGS: dict[CryptoPadding, tuple[RiskLevel, frozenset[CryptoPurpos
 DISABLED_VERIFICATION_DETECTORS: frozenset[str] = frozenset(
     {
         "jwt.verification_disabled",
-        "ssl.verify_mode",
-        "ssl.check_hostname",
-        "ssl._create_unverified_context",
+        "ssl.verification_disabled",
+        "ssl.hostname_check_disabled",
+        "ssl.unverified_context",
     }
 )
 
