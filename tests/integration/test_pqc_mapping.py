@@ -34,8 +34,8 @@ def source_findings() -> list:
 @pytest.fixture(params=[True, False], ids=["liboqs", "no-liboqs"])
 def both_liboqs_states(request, monkeypatch):
     if not request.param:
-        monkeypatch.setattr(liboqs_bridge, "OQS_AVAILABLE", False)
-    elif not liboqs_bridge.OQS_AVAILABLE:
+        monkeypatch.setattr(liboqs_bridge, "_probe", (None,))
+    elif not liboqs_bridge.available():
         pytest.skip("liboqs is not installed in this environment")
     return request.param
 
@@ -93,10 +93,10 @@ def test_the_hmac_in_the_fixture_repo_is_left_alone(source_findings, both_liboqs
 
 def test_recommendations_are_identical_with_and_without_liboqs(source_findings, monkeypatch):
     """The plan's done-when condition, over every finding in the fixture repo."""
-    if not liboqs_bridge.OQS_AVAILABLE:
+    if not liboqs_bridge.available():
         pytest.skip("liboqs is not installed, so there is nothing to compare against")
     with_liboqs = recommend_all(source_findings)
-    monkeypatch.setattr(liboqs_bridge, "OQS_AVAILABLE", False)
+    monkeypatch.setattr(liboqs_bridge, "_probe", (None,))
     without_liboqs = recommend_all(source_findings)
     assert with_liboqs == without_liboqs
     assert with_liboqs
