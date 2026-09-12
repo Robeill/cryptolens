@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from cryptolens.model import CryptoFinding, RiskLevel
+from cryptolens.model import CryptoFinding, CryptoPurpose, RiskLevel
 from cryptolens.risk import Priority
 from cryptolens.scan import ScanResult
 
@@ -188,7 +188,7 @@ def _inventory(result: ScanResult) -> list[str]:
     for asset in result.ranked_assets():
         lines.append(
             f"  {_asset_name(asset):<26}{asset.asset_type.value:<24}"
-            f"{asset.purpose.value:<19}{asset.occurrence_count:>5}  "
+            f"{_asset_purpose(asset):<19}{asset.occurrence_count:>5}  "
             f"{asset.risk(result.assessments).value:<9}"
             f"{asset.priority(result.assessments).value}"
         )
@@ -212,13 +212,26 @@ def _location(finding: CryptoFinding) -> str:
     return f"{finding.location.file}:{finding.location.line}"
 
 
+UNDETERMINED_PURPOSE = "purpose undetermined"
+
+
 def _label(finding: CryptoFinding) -> str:
+    """`RSA 1024-bit (unknown)` reads as a broken report. Say what is undetermined."""
     parts = [finding.algorithm]
     if finding.key_size:
         parts.append(f"{finding.key_size}-bit")
     if finding.mode.value not in {"unknown", "other"}:
         parts.append(finding.mode.value.upper())
-    return f"{' '.join(parts)} ({finding.purpose.value})"
+    purpose = (
+        UNDETERMINED_PURPOSE
+        if finding.purpose is CryptoPurpose.UNKNOWN
+        else finding.purpose.value
+    )
+    return f"{' '.join(parts)} ({purpose})"
+
+
+def _asset_purpose(asset) -> str:
+    return "undetermined" if asset.purpose is CryptoPurpose.UNKNOWN else asset.purpose.value
 
 
 def _asset_name(asset) -> str:

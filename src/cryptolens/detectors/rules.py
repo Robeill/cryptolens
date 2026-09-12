@@ -16,6 +16,20 @@ from cryptolens.model import (
 
 UNSET = object()
 
+CONFIDENCE_PURPOSE_FROM_USAGE = 0.6
+CONFIDENCE_PURPOSE_AMBIGUOUS = 0.5
+CONFIDENCE_OPAQUE_ARTIFACT = 0.3
+
+PURPOSE_BY_METHOD: dict[str, tuple[CryptoPurpose, CryptoPrimitive]] = {
+    "sign": (CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+    "verify": (CryptoPurpose.DIGITAL_SIGNATURE, CryptoPrimitive.SIGNATURE),
+    "exchange": (CryptoPurpose.KEY_ESTABLISHMENT, CryptoPrimitive.KEY_AGREE),
+    "encrypt": (CryptoPurpose.KEY_ESTABLISHMENT, CryptoPrimitive.PKE),
+    "decrypt": (CryptoPurpose.KEY_ESTABLISHMENT, CryptoPrimitive.PKE),
+}
+
+KEY_ACCESSORS = frozenset({"public_key", "private_key"})
+
 PYCA = "cryptography.hazmat.primitives"
 PYCA_ASYM = f"{PYCA}.asymmetric"
 PYCA_CIPHERS = f"{PYCA}.ciphers"
@@ -63,6 +77,8 @@ class Rule:
     value_name: str | None = None
     value_equals: Any = UNSET
     consumes_args: bool = False
+    resolve_purpose: bool = False
+    extra: Mapping[str, Any] | None = None
     emits: bool = True
     confidence: float | None = None
     detector: str = ""
@@ -416,6 +432,7 @@ RULES: tuple[Rule, ...] = tuple(
             functions=(CryptoFunction.KEYGEN,),
             key_size_kwarg="key_size",
             key_size_arg=1,
+            resolve_purpose=True,
             detector="pyca.rsa.keygen",
         ),
         Rule(
@@ -460,6 +477,7 @@ RULES: tuple[Rule, ...] = tuple(
             algorithm="RSA",
             primitive=CryptoPrimitive.PKE,
             padding=CryptoPadding.PKCS1V15,
+            resolve_purpose=True,
             detector="pyca.rsa.pkcs1v15",
         ),
         Rule(
@@ -477,6 +495,7 @@ RULES: tuple[Rule, ...] = tuple(
             functions=(CryptoFunction.KEYGEN,),
             curve_arg=0,
             consumes_args=True,
+            resolve_purpose=True,
             detector="pyca.ec.keygen",
         ),
         Rule(
@@ -551,6 +570,8 @@ RULES: tuple[Rule, ...] = tuple(
             primitive=CryptoPrimitive.UNKNOWN,
             asset_type=AssetType.RELATED_CRYPTO_MATERIAL,
             functions=(CryptoFunction.OTHER,),
+            confidence=CONFIDENCE_OPAQUE_ARTIFACT,
+            extra={"artifact": "private-key"},
             detector="pyca.load_private_key",
         ),
         Rule(

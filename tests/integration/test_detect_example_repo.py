@@ -13,6 +13,7 @@ from cryptolens.detectors.engine import detect
 from cryptolens.detectors.normalize import normalize_algorithm
 from cryptolens.discovery.source_files import discover_source_files
 from cryptolens.model import (
+    AssetType,
     CryptoFunction,
     CryptoMode,
     CryptoPrimitive,
@@ -271,3 +272,192 @@ def test_the_verification_disabled_signal_survives_aggregation(findings_by_modul
     assert "JWT-unverified" in assets
     assert "JWT" in assets
     assert assets["JWT-unverified"].asset_id != assets["JWT"].asset_id
+
+
+# --------------------------------------------------------- what is left undetermined
+
+
+UNDETERMINED_PURPOSE_SITES = {
+    ("aliased_imports.py", 26),
+    ("dynamic_case.py", 8),
+    ("dynamic_case.py", 13),
+    ("ecdsa_sign.py", 6),
+    ("ecdsa_sign.py", 10),
+    ("rsa_signing.py", 6),
+    ("rsa_signing.py", 10),
+    ("rsa_signing.py", 22),
+    ("rsa_signing.py", 46),
+}
+
+
+def test_the_undetermined_purposes_are_exactly_the_unknowable_ones(findings_by_module):
+    """Pinned so the count cannot silently grow. Every entry here is a key that arrives as a
+    function parameter, a `getattr` on a variable, or a PEM whose contents are not known
+    until run time -- none of them resolvable without interprocedural data flow, which is a
+    stated limitation."""
+    everything = [f for rows in findings_by_module.values() for f in rows]
+    undetermined = {
+        (f.location.file, f.location.line)
+        for f in everything
+        if f.purpose is CryptoPurpose.UNKNOWN
+    }
+    assert undetermined == UNDETERMINED_PURPOSE_SITES
+
+
+def test_nothing_claims_full_confidence_in_an_undetermined_purpose(findings_by_module):
+    """Reporting a rank without the field that justifies it, at full confidence, is the
+    combination design principle 5 forbids."""
+    everything = [f for rows in findings_by_module.values() for f in rows]
+    for finding in everything:
+        if finding.purpose is CryptoPurpose.UNKNOWN:
+            assert finding.confidence < 0.9, f"{finding.location} {finding.algorithm}"
+
+
+def test_nothing_claims_full_confidence_in_an_unidentified_algorithm(findings_by_module):
+    everything = [f for rows in findings_by_module.values() for f in rows]
+    for finding in everything:
+        if finding.algorithm == "unknown":
+            assert finding.confidence < 0.9, str(finding.location)
+
+
+def test_an_opaque_private_key_load_is_classified_as_key_material(findings_by_module):
+    """`load_pem_private_key` cannot know the algorithm until run time, but it does know it
+    is looking at a private key. That is worth recording; full confidence in `unknown` is
+    not."""
+    loaded = [
+        f for f in findings_by_module["rsa_signing.py"] if f.detector == "pyca.load_private_key"
+    ]
+    assert len(loaded) == 1
+    assert loaded[0].algorithm == "unknown"
+    assert loaded[0].asset_type is AssetType.RELATED_CRYPTO_MATERIAL
+    assert loaded[0].extra["artifact"] == "private-key"
+    assert loaded[0].confidence == 0.3
+
+
+# ------------------------------------------------- purpose recovered from how a key is used
+
+
+def findings_for(source: str) -> list:
+    from cryptolens.analyzers.python_ast import analyze_source
+
+    return detect(analyze_source(source, "local.py"))
+
+
+SIGNING_KEY = """\
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+
+def sign(message):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return key.sign(message, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=32),
+                    hashes.SHA256())
+"""
+
+AGREEMENT_KEY = """\
+from cryptography.hazmat.primitives.asymmetric import ec
+
+
+def agree(peer):
+    key = ec.generate_private_key(ec.SECP256R1())
+    return key.exchange(ec.ECDH(), peer)
+"""
+
+BOTH_IN_ONE_FILE = """\
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+
+
+def sign(message):
+    key = ec.generate_private_key(ec.SECP256R1())
+    return key.sign(message, ec.ECDSA(hashes.SHA256()))
+
+
+def agree(peer):
+    key = ec.generate_private_key(ec.SECP256R1())
+    return key.exchange(ec.ECDH(), peer)
+"""
+
+
+def test_a_key_used_to_sign_is_a_signing_key():
+    keygen = next(f for f in findings_for(SIGNING_KEY) if f.detector == "pyca.rsa.keygen")
+    assert keygen.purpose is CryptoPurpose.DIGITAL_SIGNATURE
+    assert keygen.primitive is CryptoPrimitive.SIGNATURE
+
+
+def test_a_key_used_to_agree_is_a_key_agreement_key():
+    keygen = next(f for f in findings_for(AGREEMENT_KEY) if f.detector == "pyca.ec.keygen")
+    assert keygen.purpose is CryptoPurpose.KEY_ESTABLISHMENT
+    assert keygen.primitive is CryptoPrimitive.KEY_AGREE
+
+
+def test_a_recovered_purpose_is_reported_at_reduced_confidence():
+    """The index is file-scoped, not binding-scoped, so it is an inference and says so."""
+    keygen = next(f for f in findings_for(SIGNING_KEY) if f.detector == "pyca.rsa.keygen")
+    assert keygen.confidence == 0.6
+
+
+def test_two_keys_used_differently_in_one_file_stay_undetermined():
+    """The index cannot tell the two `key` variables apart, so it must not pick one."""
+    keygens = [f for f in findings_for(BOTH_IN_ONE_FILE) if f.detector == "pyca.ec.keygen"]
+    assert len(keygens) == 2
+    for keygen in keygens:
+        assert keygen.purpose is CryptoPurpose.UNKNOWN
+        assert keygen.confidence == 0.5
+
+
+def test_a_key_passed_in_as_a_parameter_stays_undetermined():
+    """The accepted limitation, pinned: no interprocedural data flow."""
+    source = """\
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+
+def make():
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+"""
+    keygen = next(f for f in findings_for(source) if f.detector == "pyca.rsa.keygen")
+    assert keygen.purpose is CryptoPurpose.UNKNOWN
+    assert keygen.confidence == 0.5
+
+
+WRAPPING_KEY = """\
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+
+def wrap(secret):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return key.public_key().encrypt(
+        secret,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
+                     label=None),
+    )
+"""
+
+
+def test_resolution_sees_through_public_key():
+    """`key.public_key().encrypt(...)` is still a use of the key generated two lines up."""
+    keygen = next(f for f in findings_for(WRAPPING_KEY) if f.detector == "pyca.rsa.keygen")
+    assert keygen.purpose is CryptoPurpose.KEY_ESTABLISHMENT
+    assert keygen.primitive is CryptoPrimitive.PKE
+
+
+def test_an_rsa_keygen_is_never_assumed_to_be_a_signing_key():
+    """The case that rules out defaulting RSA keygen to `digital_signature`: this key is for
+    key transport, so assuming signature would move it from URGENT to SCHEDULED and
+    recommend ML-DSA where ML-KEM is needed. Guessing here fails toward *less* urgency,
+    which is the wrong direction."""
+    from datetime import UTC, datetime
+
+    from cryptolens.pqc import recommend
+    from cryptolens.risk import Priority, assess
+
+    keygen = next(f for f in findings_for(WRAPPING_KEY) if f.detector == "pyca.rsa.keygen")
+    assert assess(keygen, datetime(2026, 9, 12, tzinfo=UTC)).priority is Priority.URGENT
+    assert recommend(keygen).primary.name.startswith("ML-KEM")
+
+
+def test_recovering_a_purpose_never_creates_a_second_finding():
+    """The identity invariant from the previous fix still holds under resolution."""
+    for source in (SIGNING_KEY, AGREEMENT_KEY, BOTH_IN_ONE_FILE, WRAPPING_KEY):
+        assert collisions(findings_for(source)) == {}
