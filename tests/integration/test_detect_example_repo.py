@@ -10,6 +10,7 @@ import pytest
 
 from cryptolens.analyzers.python_ast import analyze_file
 from cryptolens.detectors.engine import detect
+from cryptolens.detectors.normalize import normalize_algorithm
 from cryptolens.discovery.source_files import discover_source_files
 from cryptolens.model import (
     CryptoFunction,
@@ -186,3 +187,87 @@ def test_a_bare_ec_keygen_is_vulnerable_even_though_its_purpose_is_undetermined(
     assert ec
     assert {f.purpose for f in ec} == {CryptoPurpose.UNKNOWN}
     assert {f.migration_status for f in ec} == {MigrationStatus.QUANTUM_VULNERABLE}
+
+
+# ------------------------------------------------------------------ identity invariants
+
+
+def collisions(findings) -> dict:
+    """Group by the triple the Day 23 evaluation matches ground truth on."""
+    grouped: dict[tuple, list] = {}
+    for finding in findings:
+        key = (
+            finding.location.file,
+            finding.location.line,
+            normalize_algorithm(finding.algorithm),
+        )
+        grouped.setdefault(key, []).append(finding)
+    return {key: rows for key, rows in grouped.items() if len(rows) > 1}
+
+
+def test_no_two_findings_share_a_file_line_and_algorithm(findings_by_module):
+    """The evaluation matches on `(relative_path, line, normalized_algorithm)`. Two findings
+    against one ground-truth entry is a guaranteed false positive that says nothing about
+    detection quality, so rule collisions have to be caught here rather than measured later.
+
+    Deliberately general: any future rule that collides fails this, not just the JWT pair
+    that prompted it.
+    """
+    everything = [f for rows in findings_by_module.values() for f in rows]
+    assert collisions(everything) == {}
+
+
+def test_a_configuration_weakness_is_a_different_finding_from_the_call_it_weakens():
+    """`jwt.decode(token, verify=False)` is two facts about one line: a JWT is verified here,
+    and it is not really. They must not share an identity."""
+    from cryptolens.analyzers.python_ast import analyze_source
+
+    source = "import jwt\n\n\ndef read(token):\n    return jwt.decode(token, verify=False)\n"
+    findings = detect(analyze_source(source, "one_line.py"))
+    assert collisions(findings) == {}
+    assert {f.algorithm for f in findings} == {"JWT", "JWT-unverified"}
+    assert {f.location.line for f in findings} == {5}
+
+
+def test_the_same_holds_when_tls_is_configured_on_one_line():
+    """The TLS rules had the identical latent collision; it was hidden only because the
+    fixture puts each assignment on its own line."""
+    from cryptolens.analyzers.python_ast import analyze_source
+
+    source = (
+        "import ssl\n\n\n"
+        "def context():\n"
+        "    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT); ctx.verify_mode = ssl.CERT_NONE\n"
+        "    return ctx\n"
+    )
+    findings = detect(analyze_source(source, "one_line.py"))
+    assert collisions(findings) == {}
+    assert {f.algorithm for f in findings} == {"TLS", "TLS-unverified"}
+
+
+def test_hostname_checking_and_certificate_verification_are_distinct_weaknesses():
+    from cryptolens.analyzers.python_ast import analyze_source
+
+    source = (
+        "import ssl\n\n\n"
+        "def context():\n"
+        "    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)\n"
+        "    ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE\n"
+        "    return ctx\n"
+    )
+    findings = detect(analyze_source(source, "one_line.py"))
+    assert collisions(findings) == {}
+    assert "TLS-unverified" in {f.algorithm for f in findings}
+    assert "TLS-unverified-hostname" in {f.algorithm for f in findings}
+
+
+def test_the_verification_disabled_signal_survives_aggregation(findings_by_module):
+    """The consequence that made this worth fixing: a CRITICAL finding was being buried
+    inside the component for the algorithm it weakens."""
+    from cryptolens.cbom.aggregate import aggregate
+
+    everything = [f for rows in findings_by_module.values() for f in rows]
+    assets = {a.algorithm: a for a in aggregate(everything)}
+    assert "JWT-unverified" in assets
+    assert "JWT" in assets
+    assert assets["JWT-unverified"].asset_id != assets["JWT"].asset_id

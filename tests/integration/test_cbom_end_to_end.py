@@ -92,13 +92,47 @@ def test_rsa_stays_split_by_purpose_in_the_inventory(source_findings):
 
 
 def test_asset_risk_is_the_worst_of_its_call_sites(source_findings):
+    """Holds for every asset, not just the one that happened to be convenient."""
     assets = aggregate(source_findings)
     assessments = assess_all(source_findings, STAMP)
 
-    tls = next(a for a in assets if a.asset_type is AssetType.PROTOCOL)
-    assert tls.occurrence_count == 5
-    assert tls.risk(assessments) is RiskLevel.CRITICAL
-    assert tls.priority(assessments) is Priority.IMMEDIATE
+    for asset in assets:
+        worst = max(assessments[o.finding_id].risk.rank for o in asset.occurrences)
+        assert asset.risk(assessments).rank == worst, asset.algorithm
+
+    multi = [a for a in assets if a.occurrence_count > 1]
+    assert multi, "nothing to prove if no asset has more than one call site"
+
+
+def test_a_configuration_weakness_is_not_merged_into_the_asset_it_weakens(source_findings):
+    """`ssl.SSLContext(...)` and `verify_mode = CERT_NONE` are not the same inventory entry.
+    Merging them buried a CRITICAL finding inside a URGENT component."""
+    assets = {a.algorithm: a for a in aggregate(source_findings)}
+    assessments = assess_all(source_findings, STAMP)
+
+    assert assets["TLS"].risk(assessments) is RiskLevel.HIGH
+    assert assets["TLS"].priority(assessments) is Priority.URGENT
+
+    assert assets["TLS-unverified"].risk(assessments) is RiskLevel.CRITICAL
+    assert assets["TLS-unverified"].priority(assessments) is Priority.IMMEDIATE
+    assert assets["TLS-unverified-hostname"].risk(assessments) is RiskLevel.CRITICAL
+
+    assert assets["JWT"].risk(assessments) is RiskLevel.MEDIUM
+    assert assets["JWT-unverified"].risk(assessments) is RiskLevel.CRITICAL
+
+
+def test_a_weakened_protocol_still_reports_as_that_protocol(source_findings):
+    payload = json.loads(document(source_findings))
+    protocols = {
+        component["name"]: component["cryptoProperties"]["protocolProperties"]["type"]
+        for component in payload["components"]
+        if component["cryptoProperties"]["assetType"] == "protocol"
+    }
+    assert protocols == {
+        "TLS": "tls",
+        "TLS-unverified": "tls",
+        "TLS-unverified-hostname": "tls",
+    }
 
 
 def test_the_pqc_certificate_appears_as_a_quantum_safe_component(artifact_repo):

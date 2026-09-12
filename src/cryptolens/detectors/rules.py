@@ -143,6 +143,10 @@ JWT_ALGORITHMS: dict[str, AlgorithmSpec] = {
 
 JWT_ENTRY_POINTS = ("jwt", "jose.jwt")
 
+JWT_UNVERIFIED = "JWT-unverified"
+TLS_UNVERIFIED = "TLS-unverified"
+TLS_UNVERIFIED_HOSTNAME = "TLS-unverified-hostname"
+
 
 CIPHER_ALGORITHMS: dict[str, tuple[str, CryptoPrimitive, int | None]] = {
     f"{PYCA_CIPHERS}.algorithms.AES": ("AES", CryptoPrimitive.BLOCK_CIPHER, None),
@@ -281,7 +285,7 @@ def _jwt_rules() -> list[Rule]:
             ),
             Rule(
                 match=f"{module}.decode",
-                algorithm="JWT",
+                algorithm=JWT_UNVERIFIED,
                 primitive=CryptoPrimitive.SIGNATURE,
                 purpose=CryptoPurpose.DIGITAL_SIGNATURE,
                 functions=(CryptoFunction.VERIFY,),
@@ -291,7 +295,7 @@ def _jwt_rules() -> list[Rule]:
             ),
             Rule(
                 match=f"{module}.decode",
-                algorithm="JWT",
+                algorithm=JWT_UNVERIFIED,
                 primitive=CryptoPrimitive.SIGNATURE,
                 purpose=CryptoPurpose.DIGITAL_SIGNATURE,
                 functions=(CryptoFunction.VERIFY,),
@@ -623,7 +627,7 @@ RULES: tuple[Rule, ...] = tuple(
         ),
         Rule(
             match="ssl._create_unverified_context",
-            algorithm="TLS",
+            algorithm=TLS_UNVERIFIED,
             primitive=CryptoPrimitive.OTHER,
             purpose=CryptoPurpose.KEY_ESTABLISHMENT,
             asset_type=AssetType.PROTOCOL,
@@ -631,7 +635,7 @@ RULES: tuple[Rule, ...] = tuple(
         ),
         Rule(
             match="<assign>.verify_mode",
-            algorithm="TLS",
+            algorithm=TLS_UNVERIFIED,
             primitive=CryptoPrimitive.OTHER,
             purpose=CryptoPurpose.KEY_ESTABLISHMENT,
             asset_type=AssetType.PROTOCOL,
@@ -640,7 +644,7 @@ RULES: tuple[Rule, ...] = tuple(
         ),
         Rule(
             match="<assign>.check_hostname",
-            algorithm="TLS",
+            algorithm=TLS_UNVERIFIED_HOSTNAME,
             primitive=CryptoPrimitive.OTHER,
             purpose=CryptoPurpose.KEY_ESTABLISHMENT,
             asset_type=AssetType.PROTOCOL,

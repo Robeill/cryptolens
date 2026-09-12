@@ -209,9 +209,18 @@ def _related_material_properties(asset: CryptoAsset) -> RelatedCryptoMaterialPro
 
 def _protocol_properties(asset: CryptoAsset) -> ProtocolProperties:
     return ProtocolProperties(
-        type=PROTOCOL_TYPES.get(asset.algorithm.upper(), ProtocolPropertiesType.UNKNOWN),
+        type=_protocol_type(asset.algorithm),
         version=asset.parameter_set,
     )
+
+
+def _protocol_type(algorithm: str) -> ProtocolPropertiesType:
+    """`TLS-unverified` is still TLS. A configuration weakness names the protocol it weakens,
+    so the lookup falls back to the part before the first hyphen."""
+    name = algorithm.upper()
+    if name in PROTOCOL_TYPES:
+        return PROTOCOL_TYPES[name]
+    return PROTOCOL_TYPES.get(name.split("-", 1)[0], ProtocolPropertiesType.UNKNOWN)
 
 
 def _date(raw: Any) -> datetime | None:
