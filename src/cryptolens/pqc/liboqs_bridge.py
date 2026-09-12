@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 from typing import Any
 
@@ -10,13 +12,19 @@ logger = logging.getLogger(__name__)
 
 UNAVAILABLE = "unavailable"
 
+_IMPORT_CHATTER = io.StringIO()
+
 try:
-    import oqs
+    with contextlib.redirect_stdout(_IMPORT_CHATTER):
+        import oqs
 
     OQS_AVAILABLE = True
 except Exception:
     oqs = None
     OQS_AVAILABLE = False
+
+if _IMPORT_CHATTER.getvalue():
+    logger.debug("liboqs said on import: %s", _IMPORT_CHATTER.getvalue().strip())
 
 _SIZE_FIELDS = (
     ("public_key_bytes", "length_public_key"),
