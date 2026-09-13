@@ -1,35 +1,34 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
-from cryptolens.discovery.source_files import DEFAULT_IGNORE_DIRS, _is_ignored
+from cryptolens.discovery.walk import walk_files
+
+logger = logging.getLogger(__name__)
 
 ARTIFACT_EXTENSIONS = {".pem", ".crt", ".cer", ".der", ".key", ".pub", ".p12", ".pfx"}
+SKIP_EXTENSIONS = {".py", ".md", ".txt", ".json", ".toml", ".yaml", ".yml"}
 SNIFF_BYTES = 4096
 PEM_MARKER = b"-----BEGIN"
 
+
 def _looks_like_pem(path: Path) -> bool:
     try:
-        with open(path, "rb") as f:
-            head = f.read(SNIFF_BYTES)
-        return PEM_MARKER in head
-    except (OSError, PermissionError):
+        with open(path, "rb") as handle:
+            return PEM_MARKER in handle.read(SNIFF_BYTES)
+    except OSError:
+        logger.debug("cannot sniff %s", path, exc_info=True)
         return False
 
-def discover_artifact_files(root: str | Path,extra_ignore: list[str] | None = None,) -> list[Path]:
-    root = Path(root).resolve()
-    ignore_dirs = set(DEFAULT_IGNORE_DIRS)
-    if extra_ignore:
-        ignore_dirs.update(extra_ignore)
+
+def discover_artifact_files(
+    root: str | Path, extra_ignore: list[str] | None = None
+) -> list[Path]:
     found: list[Path] = []
-    for path in root.rglob("*"):
-        if path.is_dir():
-            continue
-        if _is_ignored(path.relative_to(root), ignore_dirs):
-            continue
-        if path.suffix in ARTIFACT_EXTENSIONS:
+    for path in walk_files(root, extra_ignore):
+        if path.suffix in ARTIFACT_EXTENSIONS or (
+            path.suffix not in SKIP_EXTENSIONS and _looks_like_pem(path)
+        ):
             found.append(path)
-        elif path.suffix not in {".py", ".md", ".txt", ".json", ".toml", ".yaml", ".yml"}:
-            if _looks_like_pem(path):
-                found.append(path)
     return sorted(set(found))
