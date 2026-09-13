@@ -1,0 +1,560 @@
+{
+  "schema": "cryptolens/ground-truth/1",
+  "target": "tests/fixtures/eval_repo",
+  "written": "2026-09-13",
+  "method": [
+    "Samples written from library documentation patterns (hashlib, cryptography, PyJWT, ssl, secrets), not from the CryptoLens rule table.",
+    "This file was written by reading the samples line by line and recording what is cryptographically true at each line. It is NOT a prediction of CryptoLens output.",
+    "Committed before the scanner was run against eval_repo for the first time; the git history is the evidence for that ordering."
+  ],
+  "fields": {
+    "security_relevant": "false means the algorithm is genuinely present but the use is not a security decision; flagging it HIGH is a purpose-awareness failure, not a detection failure.",
+    "marginal": "true means a reasonable expert could omit this entry; Step 15 reports metrics with and without marginals as a sensitivity check.",
+    "weakness": "a configuration or algorithm weakness that is true at this line, independent of whether a tool reports it as a separate finding."
+  },
+  "open_matching_questions": [
+    "A line carrying a `weakness` describes two true facts (an algorithm is in use, and its guarantee is off). Step 15 must state whether a tool emitting two findings there scores one TP or one TP and one FP, before running anything.",
+    "For a multi-line call the plan makes the ast.Call line authoritative, but the algorithm is often named on a later line (identity/signatures.py 22 vs 24). Both lines are recorded; Step 15 must say which it matches on."
+  ],
+  "counts": {
+    "entries": 56,
+    "security_relevant": 53,
+    "marginal": 6,
+    "with_weakness": 10,
+    "negatives": 18,
+    "files": 15
+  },
+  "entries": [
+    {
+      "path": "auth/passwords.py",
+      "line": 7,
+      "algorithm": "CSPRNG",
+      "purpose": "random",
+      "security_relevant": true,
+      "note": "os.urandom for a password salt"
+    },
+    {
+      "path": "auth/passwords.py",
+      "line": 11,
+      "algorithm": "PBKDF2-SHA-256",
+      "purpose": "key_derivation",
+      "security_relevant": true
+    },
+    {
+      "path": "auth/passwords.py",
+      "line": 15,
+      "algorithm": "scrypt",
+      "purpose": "key_derivation",
+      "security_relevant": true
+    },
+    {
+      "path": "auth/passwords.py",
+      "line": 19,
+      "algorithm": "PBKDF2-SHA-256",
+      "purpose": "key_derivation",
+      "security_relevant": true
+    },
+    {
+      "path": "auth/passwords.py",
+      "line": 24,
+      "algorithm": "SHA-1",
+      "purpose": "hashing",
+      "security_relevant": true,
+      "weakness": "broken_algorithm",
+      "note": "SHA-1 used to hash a password"
+    },
+    {
+      "path": "auth/tokens.py",
+      "line": 11,
+      "algorithm": "HMAC-SHA-256",
+      "purpose": "mac",
+      "security_relevant": true,
+      "note": "JWT HS256 is a MAC, not a signature"
+    },
+    {
+      "path": "auth/tokens.py",
+      "line": 15,
+      "algorithm": "HMAC-SHA-256",
+      "purpose": "mac",
+      "security_relevant": true
+    },
+    {
+      "path": "auth/tokens.py",
+      "line": 19,
+      "algorithm": "RSA",
+      "purpose": "digital_signature",
+      "security_relevant": true,
+      "note": "JWT RS256"
+    },
+    {
+      "path": "auth/tokens.py",
+      "line": 23,
+      "algorithm": "RSA",
+      "purpose": "digital_signature",
+      "security_relevant": true
+    },
+    {
+      "path": "auth/tokens.py",
+      "line": 27,
+      "algorithm": "JWT",
+      "purpose": "digital_signature",
+      "security_relevant": true,
+      "weakness": "verification_disabled",
+      "note": "algorithm unspecified; the fact here is that the signature is never checked"
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 8,
+      "algorithm": "Fernet",
+      "purpose": "encryption",
+      "security_relevant": true,
+      "note": "AES-128-CBC + HMAC-SHA-256"
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 12,
+      "algorithm": "Fernet",
+      "purpose": "encryption",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 16,
+      "algorithm": "Fernet",
+      "purpose": "encryption",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 20,
+      "algorithm": "AES-256",
+      "purpose": "encryption",
+      "security_relevant": true,
+      "note": "AESGCM.generate_key"
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 24,
+      "algorithm": "CSPRNG",
+      "purpose": "random",
+      "security_relevant": true,
+      "note": "os.urandom for a GCM nonce"
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 25,
+      "algorithm": "AES-256-GCM",
+      "purpose": "encryption",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/envelope.py",
+      "line": 29,
+      "algorithm": "AES-256-GCM",
+      "purpose": "encryption",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/integrity.py",
+      "line": 8,
+      "algorithm": "SHA-256",
+      "purpose": "hashing",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/integrity.py",
+      "line": 16,
+      "algorithm": "HMAC-SHA-256",
+      "purpose": "mac",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/integrity.py",
+      "line": 20,
+      "algorithm": "HMAC-SHA-256",
+      "purpose": "mac",
+      "security_relevant": true
+    },
+    {
+      "path": "storage/integrity.py",
+      "line": 25,
+      "algorithm": "SHA-512",
+      "purpose": "hashing",
+      "security_relevant": true
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 6,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 7,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "a minimum-version assertion, not an algorithm"
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 13,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "wrap_socket establishes the connection but names no algorithm"
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 17,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 18,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "weakness": "hostname_check_disabled"
+    },
+    {
+      "path": "transport/tls.py",
+      "line": 19,
+      "algorithm": "TLS",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "weakness": "verification_disabled"
+    },
+    {
+      "path": "transport/handshake.py",
+      "line": 7,
+      "algorithm": "X25519",
+      "purpose": "key_establishment",
+      "security_relevant": true
+    },
+    {
+      "path": "transport/handshake.py",
+      "line": 12,
+      "algorithm": "X25519",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "note": "receiver is a function parameter"
+    },
+    {
+      "path": "transport/handshake.py",
+      "line": 16,
+      "algorithm": "EC",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "parameter_set": "SECP384R1",
+      "note": "purpose is not determinable from this line alone"
+    },
+    {
+      "path": "transport/handshake.py",
+      "line": 21,
+      "algorithm": "ECDH",
+      "purpose": "key_establishment",
+      "security_relevant": true
+    },
+    {
+      "path": "transport/handshake.py",
+      "line": 25,
+      "algorithm": "HKDF-SHA-256",
+      "purpose": "key_derivation",
+      "security_relevant": true
+    },
+    {
+      "path": "identity/certificates.py",
+      "line": 7,
+      "algorithm": "RSA",
+      "purpose": "unknown",
+      "security_relevant": true,
+      "key_size": 3072,
+      "note": "purpose is not determinable from this line alone"
+    },
+    {
+      "path": "identity/certificates.py",
+      "line": 11,
+      "algorithm": "RSA",
+      "purpose": "unknown",
+      "security_relevant": true,
+      "key_size": 1024,
+      "weakness": "weak_key_size"
+    },
+    {
+      "path": "identity/certificates.py",
+      "line": 15,
+      "algorithm": "X.509",
+      "purpose": "unknown",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "certificate parsing; the algorithm depends on the certificate"
+    },
+    {
+      "path": "identity/certificates.py",
+      "line": 19,
+      "algorithm": "unknown",
+      "purpose": "unknown",
+      "security_relevant": true,
+      "note": "private key material; algorithm unknown until the PEM is read"
+    },
+    {
+      "path": "identity/certificates.py",
+      "line": 23,
+      "algorithm": "unknown",
+      "purpose": "unknown",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "public key export"
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 6,
+      "algorithm": "Ed25519",
+      "purpose": "digital_signature",
+      "security_relevant": true
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 10,
+      "algorithm": "Ed25519",
+      "purpose": "digital_signature",
+      "security_relevant": true,
+      "note": "receiver is a function parameter"
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 14,
+      "algorithm": "Ed25519",
+      "purpose": "digital_signature",
+      "security_relevant": true,
+      "note": "receiver is a function parameter"
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 18,
+      "algorithm": "ECDSA-SHA-256",
+      "purpose": "digital_signature",
+      "security_relevant": true
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 22,
+      "algorithm": "RSA",
+      "purpose": "digital_signature",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "ast.Call line of the sign(); the algorithm is named at line 24"
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 24,
+      "algorithm": "RSA-PSS-SHA-256",
+      "purpose": "digital_signature",
+      "security_relevant": true
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 30,
+      "algorithm": "RSA",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "marginal": true,
+      "note": "ast.Call line of the encrypt(); the padding is named at line 32"
+    },
+    {
+      "path": "identity/signatures.py",
+      "line": 32,
+      "algorithm": "RSA-OAEP-SHA-256",
+      "purpose": "key_establishment",
+      "security_relevant": true,
+      "note": "wrapping a session key is key transport, not data encryption"
+    },
+    {
+      "path": "legacy/compat.py",
+      "line": 7,
+      "algorithm": "MD5",
+      "purpose": "hashing",
+      "security_relevant": true,
+      "weakness": "broken_algorithm"
+    },
+    {
+      "path": "legacy/compat.py",
+      "line": 11,
+      "algorithm": "MD5",
+      "purpose": "mac",
+      "security_relevant": true,
+      "weakness": "broken_algorithm",
+      "note": "homebrew keyed hash; length-extendable as well as collision-broken"
+    },
+    {
+      "path": "legacy/compat.py",
+      "line": 15,
+      "algorithm": "3DES",
+      "purpose": "encryption",
+      "security_relevant": true,
+      "mode": "cbc",
+      "weakness": "deprecated_algorithm"
+    },
+    {
+      "path": "legacy/compat.py",
+      "line": 21,
+      "algorithm": "AES",
+      "purpose": "encryption",
+      "security_relevant": true,
+      "mode": "ecb",
+      "weakness": "insecure_mode"
+    },
+    {
+      "path": "legacy/compat.py",
+      "line": 27,
+      "algorithm": "RC4",
+      "purpose": "encryption",
+      "security_relevant": true,
+      "weakness": "broken_algorithm"
+    },
+    {
+      "path": "web/caching.py",
+      "line": 5,
+      "algorithm": "MD5",
+      "purpose": "hashing",
+      "security_relevant": false,
+      "note": "ETag; a collision is a cache miss, not a forgery"
+    },
+    {
+      "path": "web/caching.py",
+      "line": 10,
+      "algorithm": "MD5",
+      "purpose": "hashing",
+      "security_relevant": false,
+      "note": "cache key"
+    },
+    {
+      "path": "web/caching.py",
+      "line": 14,
+      "algorithm": "MD5",
+      "purpose": "hashing",
+      "security_relevant": false,
+      "note": "shard selector"
+    },
+    {
+      "path": "web/sessions.py",
+      "line": 7,
+      "algorithm": "CSPRNG",
+      "purpose": "random",
+      "security_relevant": true,
+      "note": "correct: secrets for a session id"
+    },
+    {
+      "path": "web/sessions.py",
+      "line": 11,
+      "algorithm": "CSPRNG",
+      "purpose": "random",
+      "security_relevant": true
+    },
+    {
+      "path": "web/sessions.py",
+      "line": 15,
+      "algorithm": "CSPRNG",
+      "purpose": "random",
+      "security_relevant": true
+    }
+  ],
+  "negatives": [
+    {
+      "path": "games/cards.py",
+      "line": 12,
+      "why": "random.shuffle for a card deck, not security"
+    },
+    {
+      "path": "games/cards.py",
+      "line": 24,
+      "why": "random.choice for a starting player"
+    },
+    {
+      "path": "games/cards.py",
+      "line": 28,
+      "why": "random.randint for a dice roll"
+    },
+    {
+      "path": "web/inventory.py",
+      "line": 6,
+      "why": "loop over a variable named `key`"
+    },
+    {
+      "path": "web/inventory.py",
+      "line": 11,
+      "why": "`key` as a keyword argument name"
+    },
+    {
+      "path": "web/inventory.py",
+      "line": 17,
+      "why": "`key` in a dict iteration"
+    },
+    {
+      "path": "web/inventory.py",
+      "line": 23,
+      "why": "`key` as a sort function argument"
+    },
+    {
+      "path": "web/payloads.py",
+      "line": 8,
+      "why": "base64 in a function called encrypt_payload"
+    },
+    {
+      "path": "web/payloads.py",
+      "line": 12,
+      "why": "base64 decode, not decryption"
+    },
+    {
+      "path": "web/payloads.py",
+      "line": 17,
+      "why": "base64 for basic auth is encoding, not encryption"
+    },
+    {
+      "path": "web/naming.py",
+      "line": 5,
+      "why": "encrypt_name() reverses a string"
+    },
+    {
+      "path": "web/naming.py",
+      "line": 9,
+      "why": "decrypt_name() reverses a string"
+    },
+    {
+      "path": "web/naming.py",
+      "line": 13,
+      "why": "`cipher` in a display-name helper"
+    },
+    {
+      "path": "web/naming.py",
+      "line": 17,
+      "why": "`secret` in a label helper"
+    },
+    {
+      "path": "web/naming.py",
+      "line": 21,
+      "why": "`hash_bucket` sums character codes"
+    },
+    {
+      "path": "auth/passwords.py",
+      "line": 20,
+      "why": "secrets.compare_digest is a comparison, not an algorithm"
+    },
+    {
+      "path": "storage/integrity.py",
+      "line": 21,
+      "why": "hmac.compare_digest is a comparison"
+    },
+    {
+      "path": "web/sessions.py",
+      "line": 19,
+      "why": "secrets.compare_digest is a comparison"
+    }
+  ]
+}
