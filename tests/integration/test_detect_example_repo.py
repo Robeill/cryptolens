@@ -91,9 +91,10 @@ def test_the_ecdh_versus_ecdsa_distinction_is_visible(findings_by_module):
     """The whole purpose-based post-quantum urgency argument depends on this."""
     rows = findings_by_module["ecdsa_sign.py"]
     ecdh = [f for f in rows if f.algorithm == "ECDH"]
-    ecdsa = [f for f in rows if f.algorithm == "ECDSA"]
+    ecdsa = [f for f in rows if f.algorithm.startswith("ECDSA")]
     assert [f.purpose for f in ecdh] == [CryptoPurpose.KEY_ESTABLISHMENT]
     assert ecdsa and all(f.purpose is CryptoPurpose.DIGITAL_SIGNATURE for f in ecdsa)
+    assert {f.algorithm for f in ecdsa} == {"ECDSA-SHA-256"}, "the digest belongs in the name"
 
 
 def test_curves_are_recorded_on_key_generation(findings_by_module):

@@ -29,20 +29,6 @@ def is_ignored(path: Path, ignore_dirs: set[str]) -> bool:
 
 
 def walk_files(root: str | Path, extra_ignore: list[str] | None = None) -> Iterator[Path]:
-    """Yield every **regular** file under `root`, skipping ignored directories.
-
-    Three things this does that `Path.rglob` does not:
-
-    * **Only regular files.** A named pipe called `server.pem` blocks the reader forever --
-      no error, no traceback, a scan that simply never returns. Sockets, device nodes and
-      dangling symlinks are excluded for the same reason.
-    * **Reports what it could not read.** `rglob` swallows a `PermissionError` on a directory
-      silently, so an unreadable subtree would vanish from the inventory without a word.
-    * **Prunes ignored directories** instead of walking into them and discarding the results,
-      which matters on a repository with a populated `.venv`.
-
-    Symlinked directories are not followed, so a symlink loop terminates.
-    """
     root = Path(root).resolve()
     ignore_dirs = ignore_set(extra_ignore)
 
