@@ -62,34 +62,16 @@ FINDINGS
            FIPS 203 and the de facto default for TLS.
 ```
 
-## Results
-
-Held-out set of 15 modules and 363 lines. Ground truth was written and committed before the
-scanner was run against it, and the matching rules were frozen before any scoring code
-existed. The samples were written from library documentation, but not by someone who had
-never seen the detector rules, so treat this as a demonstration rather than a benchmark.
-
-| | Precision | Recall | F1 |
-|---|---|---|---|
-| CryptoLens, call-site | 0.836 | 0.773 | 0.803 |
-| CryptoLens, file-level | 0.895 | 0.895 | 0.895 |
-| Bandit, same ground truth | 0.842 | 0.242 | 0.377 |
-| Bandit, its own remit | 0.684 | 0.650 | 0.667 |
-
-Bandit is competitive on weak-algorithm detection and attempts no inventory, purpose or quantum
-exposure. 13,868 lines of the `cryptography` library scan in 176 ms.
-
-The matching rules are in [`tools/PROTOCOL.md`](tools/PROTOCOL.md), frozen before any scoring
-code was written; the raw run records are in [`evaluation/`](evaluation/).
-
 ## Limitations
 
-- **No interprocedural data flow.** `private_key.sign(msg)` where the key is a parameter is
-  invisible. 6 of 15 misses on the evaluation set — the largest single gap.
+- **No interprocedural data flow** — the largest gap. `private_key.sign(msg)` where the key
+  arrives as a parameter is invisible; the same call is resolved when the key is created in
+  the same scope.
 - **No purpose awareness without data flow.** `hashlib.md5` used as an ETag is graded HIGH.
-  3 of 3 failures, and Bandit fails identically, so this is a limit of the approach.
-- **Confidence records how a symbol was resolved, not whether a finding is correct.**
-  Precision falls from 0.836 to 0.818 as the confidence floor rises.
+  A cache key and a password hash are the same call, and Bandit gets this wrong too, so it is
+  a limit of pattern-based analysis rather than of this implementation.
+- **Confidence records how a symbol was resolved, not whether a finding is correct.** It is
+  not a precision dial and filtering on it does not improve precision.
 - **Dynamic names** (`getattr`, `eval`, `importlib`) are reported at low confidence or not
   at all.
 - **Python only.** The detector rules, OID table, PQC catalog and CBOM generator are

@@ -7,7 +7,6 @@ prose instead. That trade is only honest if the prose is held to the same standa
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -17,7 +16,6 @@ from typer.testing import CliRunner
 from cryptolens.cli import EXIT_ERROR, EXIT_FINDINGS, EXIT_OK, app
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-RESULTS = ROOT / "evaluation"
 EVAL_REPO = ROOT / "tests" / "fixtures" / "eval_repo"
 
 runner = CliRunner()
@@ -43,10 +41,9 @@ def test_the_readme_exists_and_says_something(readme):
 
 
 def test_the_evaluation_protocol_ships_with_the_repository():
-    """The numbers in the README are only worth anything if the rules that produced them are
-    readable, and frozen before the scoring code existed."""
+    """`tools/evaluate.py` is only meaningful alongside the rules it implements, which were
+    frozen before it was written."""
     assert (ROOT / "tools" / "PROTOCOL.md").is_file()
-    assert (RESULTS / "run3-cryptolens.json").is_file()
 
 
 def test_every_link_resolves(readme):
@@ -97,19 +94,6 @@ def test_the_summary_counts_are_a_real_scan(readme, report):
         assert quoted.strip() in report
 
 
-def test_the_quoted_results_match_the_run_records(readme):
-    cryptolens = json.loads((RESULTS / "run3-cryptolens.json").read_text())
-    bandit = json.loads((RESULTS / "run3-bandit.json").read_text())
-    for scope in (
-        cryptolens["all_entries"]["call_site"],
-        cryptolens["all_entries"]["file_level"],
-        bandit["all_entries"]["call_site"],
-        bandit["bandit_own_remit"]["call_site"],
-    ):
-        assert f"{scope['precision']:.3f}" in readme, scope
-        assert f"{scope['f1']:.3f}" in readme, scope
-
-
 def test_the_readme_leads_with_the_argument(readme):
     """The ECDH-versus-ECDSA contrast is the project's contribution, not a feature."""
     assert readme.index("ECDSA") < readme.index("## Install")
@@ -127,13 +111,8 @@ def test_the_limitations_are_stated(readme):
 
 def test_the_measured_failures_are_admitted_not_softened(readme):
     """The MD5-as-ETag failure and the confidence result are the two findings least
-    flattering to the tool, and both belong in the README rather than only in a footnote."""
-    assert "3 of 3 failures" in readme
-    assert "Bandit fails identically" in readme
-    assert "0.836 to 0.818" in readme
-
-
-def test_the_evaluation_caveat_is_not_buried(readme):
-    results = readme[readme.index("## Results"):readme.index("## Limitations")]
-    assert "before" in results and "frozen" in results
-    assert "demonstration rather than a benchmark" in results
+    flattering to the tool, and both belong in the README rather than in a footnote."""
+    limitations = readme[readme.index("## Limitations"):]
+    assert "graded HIGH" in limitations
+    assert "Bandit gets this wrong too" in limitations
+    assert "not a precision dial" in limitations
