@@ -1,0 +1,233 @@
+{
+  "all_entries": {
+    "attribute_errors": {
+      "comparable": 32,
+      "examples": [
+        {
+          "algorithm": "MD5",
+          "at": "legacy/compat.py:11",
+          "expected": "mac",
+          "reported": "hashing"
+        },
+        {
+          "algorithm": "EC",
+          "at": "transport/handshake.py:16",
+          "expected": "key_establishment",
+          "reported": "unknown"
+        }
+      ],
+      "rate": 0.0625,
+      "wrong_purpose": 2
+    },
+    "by_confidence": {
+      ">=0.0": {
+        "f1": 0.75,
+        "findings": 54,
+        "fn": 21,
+        "fp": 9,
+        "precision": 0.8333,
+        "recall": 0.6818,
+        "tp": 45
+      },
+      ">=0.5": {
+        "f1": 0.7395,
+        "findings": 53,
+        "fn": 22,
+        "fp": 9,
+        "precision": 0.8302,
+        "recall": 0.6667,
+        "tp": 44
+      },
+      ">=0.9": {
+        "f1": 0.6957,
+        "findings": 49,
+        "fn": 26,
+        "fp": 9,
+        "precision": 0.8163,
+        "recall": 0.6061,
+        "tp": 40
+      }
+    },
+    "call_site": {
+      "f1": 0.75,
+      "fn": 21,
+      "fp": 9,
+      "precision": 0.8333,
+      "recall": 0.6818,
+      "tp": 45
+    },
+    "false_negatives": [
+      "identity/certificates.py:15 X.509",
+      "identity/certificates.py:23 unknown",
+      "identity/signatures.py:10 Ed25519",
+      "identity/signatures.py:14 Ed25519",
+      "identity/signatures.py:18 ECDSA-SHA-256",
+      "identity/signatures.py:22 RSA",
+      "identity/signatures.py:24 RSA-PSS-SHA-256",
+      "identity/signatures.py:30 RSA",
+      "identity/signatures.py:32 RSA-OAEP-SHA-256",
+      "storage/envelope.py:12 Fernet",
+      "storage/envelope.py:16 Fernet",
+      "storage/envelope.py:20 AES-256",
+      "storage/envelope.py:25 AES-256-GCM",
+      "storage/envelope.py:29 AES-256-GCM",
+      "storage/envelope.py:8 Fernet",
+      "transport/handshake.py:12 X25519",
+      "transport/handshake.py:25 HKDF-SHA-256",
+      "transport/tls.py:13 TLS",
+      "transport/tls.py:18 TLS",
+      "transport/tls.py:19 TLS",
+      "transport/tls.py:7 TLS"
+    ],
+    "false_positives": [
+      "games/cards.py:28 Mersenne Twister",
+      "identity/signatures.py:18 ECDSA",
+      "identity/signatures.py:24 RSA",
+      "identity/signatures.py:25 SHA-256",
+      "identity/signatures.py:32 RSA",
+      "transport/handshake.py:25 HKDF",
+      "web/caching.py:10 <weakness>",
+      "web/caching.py:14 <weakness>",
+      "web/caching.py:5 <weakness>"
+    ],
+    "file_level": {
+      "f1": 0.8219,
+      "fn": 8,
+      "fp": 5,
+      "precision": 0.8571,
+      "recall": 0.7895,
+      "tp": 30
+    },
+    "negative_lines": {
+      "baited_lines": 18,
+      "findings": [
+        "games/cards.py:28 Mersenne Twister"
+      ],
+      "lines_hit": 1
+    },
+    "purpose_awareness": {
+      "graded_high_or_worse": 3,
+      "non_security_facts": 3,
+      "rate": 1.0,
+      "sites": [
+        "web/caching.py:10 MD5 -> high",
+        "web/caching.py:14 MD5 -> high",
+        "web/caching.py:5 MD5 -> high"
+      ]
+    }
+  },
+  "findings": 54,
+  "seconds": 0.017,
+  "tool": "cryptolens",
+  "without_marginal": {
+    "attribute_errors": {
+      "comparable": 32,
+      "examples": [
+        {
+          "algorithm": "MD5",
+          "at": "legacy/compat.py:11",
+          "expected": "mac",
+          "reported": "hashing"
+        },
+        {
+          "algorithm": "EC",
+          "at": "transport/handshake.py:16",
+          "expected": "key_establishment",
+          "reported": "unknown"
+        }
+      ],
+      "rate": 0.0625,
+      "wrong_purpose": 2
+    },
+    "by_confidence": {
+      ">=0.0": {
+        "f1": 0.7895,
+        "findings": 54,
+        "fn": 15,
+        "fp": 9,
+        "precision": 0.8333,
+        "recall": 0.75,
+        "tp": 45
+      },
+      ">=0.5": {
+        "f1": 0.7788,
+        "findings": 53,
+        "fn": 16,
+        "fp": 9,
+        "precision": 0.8302,
+        "recall": 0.7333,
+        "tp": 44
+      },
+      ">=0.9": {
+        "f1": 0.7339,
+        "findings": 49,
+        "fn": 20,
+        "fp": 9,
+        "precision": 0.8163,
+        "recall": 0.6667,
+        "tp": 40
+      }
+    },
+    "call_site": {
+      "f1": 0.7895,
+      "fn": 15,
+      "fp": 9,
+      "precision": 0.8333,
+      "recall": 0.75,
+      "tp": 45
+    },
+    "false_negatives": [
+      "identity/signatures.py:10 Ed25519",
+      "identity/signatures.py:14 Ed25519",
+      "identity/signatures.py:18 ECDSA-SHA-256",
+      "identity/signatures.py:24 RSA-PSS-SHA-256",
+      "identity/signatures.py:32 RSA-OAEP-SHA-256",
+      "storage/envelope.py:12 Fernet",
+      "storage/envelope.py:16 Fernet",
+      "storage/envelope.py:20 AES-256",
+      "storage/envelope.py:25 AES-256-GCM",
+      "storage/envelope.py:29 AES-256-GCM",
+      "storage/envelope.py:8 Fernet",
+      "transport/handshake.py:12 X25519",
+      "transport/handshake.py:25 HKDF-SHA-256",
+      "transport/tls.py:18 TLS",
+      "transport/tls.py:19 TLS"
+    ],
+    "false_positives": [
+      "games/cards.py:28 Mersenne Twister",
+      "identity/signatures.py:18 ECDSA",
+      "identity/signatures.py:24 RSA",
+      "identity/signatures.py:25 SHA-256",
+      "identity/signatures.py:32 RSA",
+      "transport/handshake.py:25 HKDF",
+      "web/caching.py:10 <weakness>",
+      "web/caching.py:14 <weakness>",
+      "web/caching.py:5 <weakness>"
+    ],
+    "file_level": {
+      "f1": 0.8169,
+      "fn": 7,
+      "fp": 6,
+      "precision": 0.8286,
+      "recall": 0.8056,
+      "tp": 29
+    },
+    "negative_lines": {
+      "baited_lines": 18,
+      "findings": [
+        "games/cards.py:28 Mersenne Twister"
+      ],
+      "lines_hit": 1
+    },
+    "purpose_awareness": {
+      "graded_high_or_worse": 3,
+      "non_security_facts": 3,
+      "rate": 1.0,
+      "sites": [
+        "web/caching.py:10 MD5 -> high",
+        "web/caching.py:14 MD5 -> high",
+        "web/caching.py:5 MD5 -> high"
+      ]
+    }
+  }
+}

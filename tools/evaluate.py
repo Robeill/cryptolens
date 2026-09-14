@@ -4,7 +4,7 @@ The matching rules are frozen in `tools/PROTOCOL.md`, committed before this file
 Read that first; this is only its implementation.
 
     python tools/evaluate.py --tool cryptolens
-    python tools/evaluate.py --tool bandit --output docs/bandit.json
+    python tools/evaluate.py --tool bandit --output evaluation/run3-bandit.json
 """
 
 from __future__ import annotations

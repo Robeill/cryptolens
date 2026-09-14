@@ -1,6 +1,6 @@
 """The evaluator runs, and its scoring arithmetic is right.
 
-Not a measurement -- `docs/evaluation.md` holds the numbers. This only guards the machinery
+Not a measurement -- `EVALUATION.md` holds the numbers. This only guards the machinery
 that produces them, because a scoring bug is indistinguishable from a tool result.
 """
 
@@ -118,7 +118,7 @@ def test_bandit_is_scored_on_its_own_remit_as_well_as_the_full_truth():
 
 
 def test_the_headline_numbers_are_reproducible(report):
-    """If these drift, `docs/evaluation.md` is stale and must be regenerated."""
+    """If these drift, `EVALUATION.md` is stale and must be regenerated."""
     call_site = report["all_entries"]["call_site"]
     assert call_site["precision"] == pytest.approx(0.836, abs=0.01)
     assert call_site["recall"] == pytest.approx(0.773, abs=0.01)

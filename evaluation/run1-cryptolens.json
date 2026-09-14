@@ -1,0 +1,241 @@
+{
+  "all_entries": {
+    "attribute_errors": {
+      "comparable": 32,
+      "examples": [
+        {
+          "algorithm": "MD5",
+          "at": "legacy/compat.py:11",
+          "expected": "mac",
+          "reported": "hashing"
+        },
+        {
+          "algorithm": "EC",
+          "at": "transport/handshake.py:16",
+          "expected": "key_establishment",
+          "reported": "unknown"
+        }
+      ],
+      "rate": 0.0625,
+      "wrong_purpose": 2
+    },
+    "by_confidence": {
+      ">=0.0": {
+        "f1": 0.6909,
+        "findings": 44,
+        "fn": 28,
+        "fp": 6,
+        "precision": 0.8636,
+        "recall": 0.5758,
+        "tp": 38
+      },
+      ">=0.5": {
+        "f1": 0.6789,
+        "findings": 43,
+        "fn": 29,
+        "fp": 6,
+        "precision": 0.8605,
+        "recall": 0.5606,
+        "tp": 37
+      },
+      ">=0.9": {
+        "f1": 0.6415,
+        "findings": 40,
+        "fn": 32,
+        "fp": 6,
+        "precision": 0.85,
+        "recall": 0.5152,
+        "tp": 34
+      }
+    },
+    "call_site": {
+      "f1": 0.6909,
+      "fn": 28,
+      "fp": 6,
+      "precision": 0.8636,
+      "recall": 0.5758,
+      "tp": 38
+    },
+    "false_negatives": [
+      "auth/passwords.py:24 <weakness>",
+      "identity/certificates.py:11 <weakness>",
+      "identity/certificates.py:15 X.509",
+      "identity/certificates.py:23 unknown",
+      "identity/signatures.py:10 Ed25519",
+      "identity/signatures.py:14 Ed25519",
+      "identity/signatures.py:18 ECDSA-SHA-256",
+      "identity/signatures.py:22 RSA",
+      "identity/signatures.py:24 RSA-PSS-SHA-256",
+      "identity/signatures.py:30 RSA",
+      "identity/signatures.py:32 RSA-OAEP-SHA-256",
+      "legacy/compat.py:11 <weakness>",
+      "legacy/compat.py:15 <weakness>",
+      "legacy/compat.py:21 <weakness>",
+      "legacy/compat.py:27 <weakness>",
+      "legacy/compat.py:7 <weakness>",
+      "storage/envelope.py:12 Fernet",
+      "storage/envelope.py:16 Fernet",
+      "storage/envelope.py:20 AES-256",
+      "storage/envelope.py:25 AES-256-GCM",
+      "storage/envelope.py:29 AES-256-GCM",
+      "storage/envelope.py:8 Fernet",
+      "transport/handshake.py:12 X25519",
+      "transport/handshake.py:25 HKDF-SHA-256",
+      "transport/tls.py:13 TLS",
+      "transport/tls.py:18 TLS",
+      "transport/tls.py:19 TLS",
+      "transport/tls.py:7 TLS"
+    ],
+    "false_positives": [
+      "games/cards.py:28 Mersenne Twister",
+      "identity/signatures.py:18 ECDSA",
+      "identity/signatures.py:24 RSA",
+      "identity/signatures.py:25 SHA-256",
+      "identity/signatures.py:32 RSA",
+      "transport/handshake.py:25 HKDF"
+    ],
+    "file_level": {
+      "f1": 0.7826,
+      "fn": 11,
+      "fp": 4,
+      "precision": 0.871,
+      "recall": 0.7105,
+      "tp": 27
+    },
+    "negative_lines": {
+      "baited_lines": 18,
+      "findings": [
+        "games/cards.py:28 Mersenne Twister"
+      ],
+      "lines_hit": 1
+    },
+    "purpose_awareness": {
+      "graded_high_or_worse": 3,
+      "non_security_facts": 3,
+      "rate": 1.0,
+      "sites": [
+        "web/caching.py:10 MD5 -> high",
+        "web/caching.py:14 MD5 -> high",
+        "web/caching.py:5 MD5 -> high"
+      ]
+    }
+  },
+  "findings": 44,
+  "seconds": 0.016,
+  "tool": "cryptolens",
+  "without_marginal": {
+    "attribute_errors": {
+      "comparable": 32,
+      "examples": [
+        {
+          "algorithm": "MD5",
+          "at": "legacy/compat.py:11",
+          "expected": "mac",
+          "reported": "hashing"
+        },
+        {
+          "algorithm": "EC",
+          "at": "transport/handshake.py:16",
+          "expected": "key_establishment",
+          "reported": "unknown"
+        }
+      ],
+      "rate": 0.0625,
+      "wrong_purpose": 2
+    },
+    "by_confidence": {
+      ">=0.0": {
+        "f1": 0.7308,
+        "findings": 44,
+        "fn": 22,
+        "fp": 6,
+        "precision": 0.8636,
+        "recall": 0.6333,
+        "tp": 38
+      },
+      ">=0.5": {
+        "f1": 0.7184,
+        "findings": 43,
+        "fn": 23,
+        "fp": 6,
+        "precision": 0.8605,
+        "recall": 0.6167,
+        "tp": 37
+      },
+      ">=0.9": {
+        "f1": 0.68,
+        "findings": 40,
+        "fn": 26,
+        "fp": 6,
+        "precision": 0.85,
+        "recall": 0.5667,
+        "tp": 34
+      }
+    },
+    "call_site": {
+      "f1": 0.7308,
+      "fn": 22,
+      "fp": 6,
+      "precision": 0.8636,
+      "recall": 0.6333,
+      "tp": 38
+    },
+    "false_negatives": [
+      "auth/passwords.py:24 <weakness>",
+      "identity/certificates.py:11 <weakness>",
+      "identity/signatures.py:10 Ed25519",
+      "identity/signatures.py:14 Ed25519",
+      "identity/signatures.py:18 ECDSA-SHA-256",
+      "identity/signatures.py:24 RSA-PSS-SHA-256",
+      "identity/signatures.py:32 RSA-OAEP-SHA-256",
+      "legacy/compat.py:11 <weakness>",
+      "legacy/compat.py:15 <weakness>",
+      "legacy/compat.py:21 <weakness>",
+      "legacy/compat.py:27 <weakness>",
+      "legacy/compat.py:7 <weakness>",
+      "storage/envelope.py:12 Fernet",
+      "storage/envelope.py:16 Fernet",
+      "storage/envelope.py:20 AES-256",
+      "storage/envelope.py:25 AES-256-GCM",
+      "storage/envelope.py:29 AES-256-GCM",
+      "storage/envelope.py:8 Fernet",
+      "transport/handshake.py:12 X25519",
+      "transport/handshake.py:25 HKDF-SHA-256",
+      "transport/tls.py:18 TLS",
+      "transport/tls.py:19 TLS"
+    ],
+    "false_positives": [
+      "games/cards.py:28 Mersenne Twister",
+      "identity/signatures.py:18 ECDSA",
+      "identity/signatures.py:24 RSA",
+      "identity/signatures.py:25 SHA-256",
+      "identity/signatures.py:32 RSA",
+      "transport/handshake.py:25 HKDF"
+    ],
+    "file_level": {
+      "f1": 0.7761,
+      "fn": 10,
+      "fp": 5,
+      "precision": 0.8387,
+      "recall": 0.7222,
+      "tp": 26
+    },
+    "negative_lines": {
+      "baited_lines": 18,
+      "findings": [
+        "games/cards.py:28 Mersenne Twister"
+      ],
+      "lines_hit": 1
+    },
+    "purpose_awareness": {
+      "graded_high_or_worse": 3,
+      "non_security_facts": 3,
+      "rate": 1.0,
+      "sites": [
+        "web/caching.py:10 MD5 -> high",
+        "web/caching.py:14 MD5 -> high",
+        "web/caching.py:5 MD5 -> high"
+      ]
+    }
+  }
+}
