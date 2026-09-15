@@ -265,8 +265,6 @@ CATALOG: tuple[Mechanism, ...] = (
     HQC_256,
 )
 
-BY_NAME: dict[str, Mechanism] = {m.name: m for m in CATALOG}
-
 MINIMUM_CATEGORY = 3
 MINIMUM_CLASSICAL_STRENGTH = 192
 

@@ -2,22 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cryptolens.discovery.walk import (
-    DEFAULT_IGNORE_DIRS,
-    ignore_set,
-    is_ignored,
-    walk_files,
-)
+from cryptolens.discovery.walk import walk_files
 
 SOURCE_EXTENSIONS = {".py"}
-
-__all__ = [
-    "DEFAULT_IGNORE_DIRS",
-    "SOURCE_EXTENSIONS",
-    "discover_source_files",
-    "ignore_set",
-    "is_ignored",
-]
 
 
 def discover_source_files(

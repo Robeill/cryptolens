@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -143,30 +144,37 @@ def scan(
     return result
 
 
-def _scan_sources(root: Path, ignore: list[str] | None, result: ScanResult) -> list[CryptoFinding]:
-    usages = []
-    for path in discover_source_files(root, ignore):
-        result.source_files += 1
+def _read_each(
+    paths: Iterable[Path], root: Path, read: Callable[[Path, Path], list], result: ScanResult
+) -> list:
+    """Read every file, and let one unreadable file cost only itself.
+
+    The handler is belt-and-braces -- `analyze_file` and `parse_artifact` already swallow
+    their own errors -- but never crashing on bad input is a stated principle, and one
+    unanticipated exception should not cost the other six hundred files.
+    """
+    collected = []
+    for path in paths:
         try:
-            usages.extend(analyze_file(path, root))
+            collected.extend(read(path, root))
         except Exception:
-            logger.debug("failed to analyze %s", path, exc_info=True)
+            logger.debug("failed to read %s", path, exc_info=True)
             result.skipped.append(str(_relative(path, root)))
-    return detect(usages)
+    return collected
+
+
+def _scan_sources(root: Path, ignore: list[str] | None, result: ScanResult) -> list[CryptoFinding]:
+    paths = discover_source_files(root, ignore)
+    result.source_files = len(paths)
+    return detect(_read_each(paths, root, analyze_file, result))
 
 
 def _scan_artifacts(
     root: Path, ignore: list[str] | None, result: ScanResult
 ) -> list[CryptoFinding]:
-    findings: list[CryptoFinding] = []
-    for path in discover_artifact_files(root, ignore):
-        result.artifact_files += 1
-        try:
-            findings.extend(parse_artifact(path, root))
-        except Exception:
-            logger.debug("failed to parse %s", path, exc_info=True)
-            result.skipped.append(str(_relative(path, root)))
-    return findings
+    paths = discover_artifact_files(root, ignore)
+    result.artifact_files = len(paths)
+    return _read_each(paths, root, parse_artifact, result)
 
 
 def _relative(path: Path, root: Path) -> Path:

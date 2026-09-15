@@ -95,7 +95,7 @@ def assess(finding: CryptoFinding, now: datetime | None = None) -> Assessment:
         finding_id=finding.finding_id,
         classical_risk=classical_risk,
         quantum_risk=quantum_risk,
-        priority=_priority(classical_risk, quantum, finding),
+        priority=_priority(classical_risk, quantum),
         reasons=tuple(classical + quantum),
     )
 
@@ -278,9 +278,7 @@ def _outlived_deadline(finding: CryptoFinding, now: datetime) -> Reason | None:
 # ------------------------------------------------------------------------- priority
 
 
-def _priority(
-    classical_risk: RiskLevel, quantum: list[Reason], finding: CryptoFinding
-) -> Priority:
+def _priority(classical_risk: RiskLevel, quantum: list[Reason]) -> Priority:
     if classical_risk.rank >= RiskLevel.HIGH.rank:
         return Priority.IMMEDIATE
 

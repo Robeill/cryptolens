@@ -20,6 +20,7 @@ from cryptolens.certs.oids import (
     lookup_signature,
 )
 from cryptolens.detectors.normalize import normalize_algorithm
+from cryptolens.discovery.artifact_files import discover_artifact_files
 from cryptolens.model import (
     AssetType,
     CryptoFinding,
@@ -125,8 +126,6 @@ def parse_artifact(path: str | Path, root: str | Path | None = None) -> list[Cry
 
 
 def scan_artifacts(root: str | Path) -> list[CryptoFinding]:
-    from cryptolens.discovery.artifact_files import discover_artifact_files
-
     findings: list[CryptoFinding] = []
     for path in discover_artifact_files(root):
         findings.extend(parse_artifact(path, root))
@@ -398,7 +397,7 @@ def _key_facts_from_object(key: Any) -> KeyFacts | None:
             classical_security_level=RSA_STRENGTH.get(size),
         )
     if isinstance(key, ec.EllipticCurvePublicKey):
-        curve = normalize_curve(key.curve.name)
+        curve = _normalize_curve(key.curve.name)
         return KeyFacts(
             entry=OidEntry("EC", CryptoPrimitive.UNKNOWN, CryptoPurpose.UNKNOWN),
             key_size=key.key_size,
@@ -507,7 +506,7 @@ def _rsa_modulus_bits(public_key: bytes) -> int | None:
         return None
 
 
-def normalize_curve(name: str) -> str:
+def _normalize_curve(name: str) -> str:
     text = name.strip()
     if text.lower().startswith("secp"):
         return text.upper()

@@ -20,6 +20,7 @@ from cryptolens.detectors.rules import (
     Rule,
 )
 from cryptolens.model import CryptoFinding, CryptoMode, CryptoPrimitive, CryptoPurpose
+
 RSA_STRENGTH = {1024: 80, 2048: 112, 3072: 128, 4096: 152, 7680: 192, 15360: 256}
 
 
