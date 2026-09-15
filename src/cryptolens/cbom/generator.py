@@ -120,21 +120,12 @@ def generate(
 
 def _component(asset: CryptoAsset) -> Component:
     return Component(
-        name=_name(asset),
+        name=asset.display_name,
         type=ComponentType.CRYPTOGRAPHIC_ASSET,
         bom_ref=f"crypto/{asset.asset_type.value}/{asset.algorithm}/{asset.asset_id}",
         description=_description(asset),
         crypto_properties=_crypto_properties(asset),
     )
-
-
-def _name(asset: CryptoAsset) -> str:
-    parts = [asset.algorithm]
-    if asset.mode.value not in {"unknown", "other"}:
-        parts.append(asset.mode.value.upper())
-    if asset.parameter_set and asset.parameter_set != asset.algorithm:
-        parts.append(asset.parameter_set)
-    return "-".join(parts)
 
 
 def _description(asset: CryptoAsset) -> str:

@@ -187,7 +187,7 @@ def _inventory(result: ScanResult) -> list[str]:
     ]
     for asset in result.ranked_assets():
         lines.append(
-            f"  {_asset_name(asset):<26}{asset.asset_type.value:<24}"
+            f"  {asset.display_name:<26}{asset.asset_type.value:<24}"
             f"{_asset_purpose(asset):<19}{asset.occurrence_count:>5}  "
             f"{asset.risk(result.assessments).value:<9}"
             f"{asset.priority(result.assessments).value}"
@@ -234,16 +234,3 @@ def _asset_purpose(asset) -> str:
     return "undetermined" if asset.purpose is CryptoPurpose.UNKNOWN else asset.purpose.value
 
 
-def _asset_name(asset) -> str:
-    """Two `RSA` rows that differ only in padding must not read as duplicates."""
-    parts = [asset.algorithm]
-    if asset.key_size:
-        parts.append(f"{asset.key_size}-bit")
-    if asset.mode.value not in {"unknown", "other"}:
-        parts.append(asset.mode.value.upper())
-    if asset.parameter_set and asset.parameter_set != asset.algorithm:
-        parts.append(asset.parameter_set)
-    padding = asset.padding.value.upper()
-    if padding not in {"UNKNOWN", "OTHER"} and padding != asset.algorithm.upper():
-        parts.append(padding)
-    return " ".join(parts)

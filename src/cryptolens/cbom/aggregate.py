@@ -21,7 +21,7 @@ from cryptolens.model import (
 )
 from cryptolens.risk import Assessment, Priority, priority_rank
 
-INSTANCE_ASSET_TYPES = frozenset({AssetType.CERTIFICATE, AssetType.RELATED_CRYPTO_MATERIAL})
+_UNSPECIFIC = frozenset({"unknown", "other"})
 
 
 @dataclass(frozen=True)
@@ -118,6 +118,30 @@ class CryptoAsset:
     @property
     def oid(self) -> str | None:
         return self.key.oid
+
+    @property
+    def display_name(self) -> str:
+        """Every algorithm attribute that distinguishes this asset from another.
+
+        Six assets in the development fixtures are RSA, differing only in key size, padding
+        or purpose, and a reader who cannot tell two rows apart cannot act on either. Purpose
+        is deliberately not in the name: both outputs already carry it alongside, as a column
+        in the report and as the component description in the CBOM.
+
+        Shared by the report and the generator so the two cannot disagree about what a thing
+        is called. `bom-ref`, not the name, is a component's identity.
+        """
+        parts = [self.algorithm]
+        if self.key_size:
+            parts.append(f"{self.key_size}-bit")
+        if self.mode.value not in _UNSPECIFIC:
+            parts.append(self.mode.value.upper())
+        if self.parameter_set and self.parameter_set != self.algorithm:
+            parts.append(self.parameter_set)
+        padding = self.padding.value.upper()
+        if padding.lower() not in _UNSPECIFIC and padding != self.algorithm.upper():
+            parts.append(padding)
+        return " ".join(parts)
 
     @property
     def confidence(self) -> float:
